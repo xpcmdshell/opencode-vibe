@@ -8,7 +8,8 @@
 		"start": "next start",
 		"lint": "oxlint .",
 		"format": "biome format --write .",
-		"format:check": "biome format ."
+		"format:check": "biome format .",
+		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@opencode-ai/sdk": "^1.0.203",
@@ -29,6 +30,8 @@
 		"clsx": "^2.1.1",
 		"cmdk": "^1.1.1",
 		"embla-carousel-react": "^8.6.0",
+		"eventsource-parser": "^3.0.6",
+		"framer-motion": "^12.23.26",
 		"immer": "^11.1.0",
 		"lucide-react": "^0.562.0",
 		"motion": "^12.23.26",
@@ -37,6 +40,7 @@
 		"react": "19.2.3",
 		"react-dom": "19.2.3",
 		"shiki": "^3.20.0",
+		"sonner": "^2.0.7",
 		"streamdown": "^1.6.10",
 		"tailwind-merge": "^3.4.0",
 		"tokenlens": "^1.3.1",

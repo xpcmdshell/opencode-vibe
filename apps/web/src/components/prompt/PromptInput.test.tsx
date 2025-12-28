@@ -1,6 +1,8 @@
 /**
  * PromptInput integration tests.
  * Main component integrating Wave 2 features: store, parsing, autocomplete, hooks.
+ *
+ * Uses MSW for HTTP mocking (useFileSearch uses /find/files endpoint).
  */
 
 // Set up DOM environment BEFORE imports
@@ -10,25 +12,35 @@ global.document = window.document as any
 global.window = window as any
 global.navigator = window.navigator as any
 
-import { describe, test, expect, beforeEach, mock } from "bun:test"
+import { describe, test, expect, beforeEach, beforeAll, afterEach, afterAll, mock } from "bun:test"
 import { render, fireEvent } from "@testing-library/react"
+import { setupServer } from "msw/node"
+import { http, HttpResponse } from "msw"
 import type { Prompt } from "@/types/prompt"
 import type { ReactNode } from "react"
 
-// Mock dependencies - BEFORE imports
-mock.module("@/react/use-file-search", () => ({
-	useFileSearch: (query: string) => {
-		if (!query) return { files: [], isLoading: false, error: null }
-		if (query === "app")
-			return {
-				files: ["src/app/page.tsx", "src/app/layout.tsx"],
-				isLoading: false,
-				error: null,
-			}
-		return { files: [], isLoading: false, error: null }
-	},
-}))
+// Set up MSW server for file search
+const server = setupServer(
+	http.get("*/find/files", () => {
+		return HttpResponse.json({
+			data: ["src/app/page.tsx", "src/app/layout.tsx"],
+		})
+	}),
+)
 
+beforeAll(() => {
+	server.listen({ onUnhandledRequest: "warn" })
+})
+
+afterEach(() => {
+	server.resetHandlers()
+})
+
+afterAll(() => {
+	server.close()
+})
+
+// Mock use-commands (not HTTP-based)
 mock.module("@/react/use-commands", () => ({
 	useCommands: () => ({
 		getSlashCommands: () => [
@@ -49,6 +61,7 @@ mock.module("@/react/use-commands", () => ({
 	}),
 }))
 
+// Mock SSE (not HTTP-based)
 mock.module("@/react/use-sse", () => ({
 	useSSE: () => ({
 		subscribe: () => () => {},
@@ -62,6 +75,10 @@ mock.module("@/react/use-sse", () => ({
 import { PromptInput } from "./PromptInput"
 import { usePromptStore } from "@/stores/prompt-store"
 import { OpenCodeProvider } from "@/react/provider"
+
+afterAll(() => {
+	mock.restore()
+})
 
 // Wrapper with OpenCodeProvider for context
 const TestWrapper = ({ children }: { children: ReactNode }) => (

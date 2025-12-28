@@ -3,8 +3,9 @@
  *
  * Wraps children with SSEProvider and provides OpenCodeContext.
  * Handles:
- * - SSE connection and event routing to store
- * - Initial data bootstrap (sessions loading)
+ * - SSE connection and event routing to store via handleEvent
+ * - Initial data bootstrap (sessions + statuses)
+ * - Session sync (messages, parts, todos, diffs)
  * - Context provision with {url, directory, ready, sync}
  *
  * Per SYNC_IMPLEMENTATION.md lines 735-900.
@@ -19,17 +20,12 @@
 
 "use client"
 
-import React, {
-	createContext,
-	useContext,
-	useCallback,
-	useState,
-	useEffect,
-	type ReactNode,
-} from "react"
-import { SSEProvider, useSSE } from "./use-sse"
-import { useOpencodeStore, type Session, type Message } from "./store"
-import type { GlobalEvent } from "@opencode-ai/sdk/client"
+import { createContext, useContext, useCallback, useEffect, useRef, type ReactNode } from "react"
+import { toast } from "sonner"
+import { useSSE } from "./use-sse"
+import { useOpencodeStore } from "./store"
+import { createClient } from "@/core/client"
+import type { GlobalEvent, Session as SDKSession } from "@opencode-ai/sdk/client"
 
 /**
  * Context value provided by OpenCodeProvider
@@ -60,13 +56,106 @@ export interface OpenCodeProviderProps {
 }
 
 /**
- * Internal provider that handles SSE events
- * Separated from outer provider to have access to SSEProvider context
+ * OpenCodeProvider - Handles SSE events, bootstrap, and sync
  */
-function OpenCodeInternalProvider({ url, directory, children }: OpenCodeProviderProps) {
-	const [ready, setReady] = useState(false)
+export function OpenCodeProvider({ url, directory, children }: OpenCodeProviderProps) {
 	const store = useOpencodeStore()
-	const { subscribe } = useSSE()
+	const clientRef = useRef(createClient(directory))
+
+	// Initialize directory state
+	useEffect(() => {
+		store.initDirectory(directory)
+	}, [directory, store])
+
+	/**
+	 * Bootstrap: Load initial data (sessions + statuses)
+	 */
+	const bootstrap = useCallback(async () => {
+		const client = clientRef.current
+
+		try {
+			// Load sessions (filtered and sorted)
+			const sessionsResponse = await client.session.list()
+			const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000
+
+			type SessionWithArchived = SDKSession & { time: { archived?: number } }
+			const sessions = (sessionsResponse.data ?? ([] as SessionWithArchived[]))
+				.filter((s: SessionWithArchived) => !s.time.archived)
+				.sort((a: SessionWithArchived, b: SessionWithArchived) => a.id.localeCompare(b.id))
+				.filter((s: SessionWithArchived, i: number) => {
+					// Include first 20 sessions + any updated recently
+					if (i < 20) return true
+					return s.time.updated > fourHoursAgo
+				})
+
+			store.setSessions(directory, sessions)
+
+			// Load session statuses
+			const statusResponse = await client.session.status()
+			if (statusResponse.data) {
+				for (const [sessionID, status] of Object.entries(statusResponse.data)) {
+					store.handleEvent(directory, {
+						type: "session.status",
+						properties: { sessionID, status },
+					})
+				}
+			}
+
+			store.setSessionReady(directory, true)
+		} catch (error) {
+			console.error("Bootstrap failed:", error)
+		}
+	}, [directory, store])
+
+	/**
+	 * Sync a specific session (messages + parts + todos + diffs)
+	 */
+	const sync = useCallback(
+		async (sessionID: string) => {
+			const client = clientRef.current
+
+			try {
+				const [messagesResponse, todoResponse, diffResponse] = await Promise.all([
+					client.session.messages({
+						path: { id: sessionID },
+						query: { limit: 100 },
+					}),
+					client.session.todo({ path: { id: sessionID } }),
+					client.session.diff({ path: { id: sessionID } }),
+				])
+
+				// Set messages (sorted by ID)
+				if (messagesResponse.data) {
+					const messages = messagesResponse.data.map((m: any) => m.info)
+					store.setMessages(directory, sessionID, messages)
+
+					// Set parts for each message
+					for (const msg of messagesResponse.data) {
+						store.setParts(directory, msg.info.id, msg.parts as any)
+					}
+				}
+
+				// Set todos
+				if (todoResponse.data) {
+					store.handleEvent(directory, {
+						type: "todo.updated",
+						properties: { sessionID, todos: todoResponse.data },
+					})
+				}
+
+				// Set diffs
+				if (diffResponse.data) {
+					store.handleEvent(directory, {
+						type: "session.diff",
+						properties: { sessionID, diff: diffResponse.data },
+					})
+				}
+			} catch (error) {
+				console.error("Sync failed:", error)
+			}
+		},
+		[directory, store],
+	)
 
 	/**
 	 * Handle incoming SSE events and route to store
@@ -76,68 +165,63 @@ function OpenCodeInternalProvider({ url, directory, children }: OpenCodeProvider
 			const eventDirectory = event.directory
 			const payload = event.payload
 
-			// Ignore events from other directories
-			if (eventDirectory !== directory && eventDirectory !== "global") {
+			// Route global events
+			if (eventDirectory === "global") {
+				// Handle global.disposed -> re-bootstrap
+				if ((payload?.type as string) === "global.disposed") {
+					bootstrap()
+				}
 				return
 			}
 
-			// Route based on event type
-			const eventType = payload?.type
-			if (!eventType) return
+			// Handle server.instance.disposed -> re-bootstrap (same as global.disposed)
+			if ((payload?.type as string) === "server.instance.disposed") {
+				bootstrap()
+				return
+			}
 
-			const properties = (payload as any).properties
+			// Only process events for our directory
+			if (eventDirectory === directory) {
+				// Handle session.error with toast notification
+				if ((payload?.type as string) === "session.error") {
+					const error = (payload as any)?.properties?.error
+					toast.error("Session Error", {
+						description: error?.message ?? "An unknown error occurred",
+						duration: 5000,
+					})
+				}
 
-			if (eventType === "session.created" || eventType === "session.updated") {
-				const session = properties?.info as Session
-				if (session) {
-					const existing = store.getSession(session.id)
-					if (existing) {
-						store.updateSession(session.id, (draft) => {
-							Object.assign(draft, session)
-						})
-					} else {
-						store.addSession(session)
-					}
-				}
-			} else if (eventType === "session.deleted") {
-				const sessionID = properties?.sessionID
-				if (sessionID) {
-					store.removeSession(sessionID)
-				}
-			} else if (eventType === "message.updated") {
-				const message = properties?.info as Message
-				if (message) {
-					const existing = store.getMessages(message.sessionID).find((m) => m.id === message.id)
-					if (existing) {
-						store.updateMessage(message.sessionID, message.id, (draft) => {
-							Object.assign(draft, message)
-						})
-					} else {
-						store.addMessage(message)
-					}
-				}
-			} else if (eventType === "message.removed") {
-				const sessionIDVal = properties?.sessionID
-				const messageIDVal = properties?.messageID
-				if (sessionIDVal && messageIDVal) {
-					store.removeMessage(sessionIDVal, messageIDVal)
-				}
+				store.handleEvent(directory, payload)
 			}
 		},
-		[directory, store],
+		[directory, store, bootstrap],
 	)
 
-	/**
-	 * Subscribe to all relevant SSE events
-	 */
+	// Subscribe to SSE events
+	const { subscribe } = useSSE()
+
+	// Subscribe to all relevant event types
 	useEffect(() => {
-		const unsubscribers = [
-			subscribe("session.created", handleEvent),
-			subscribe("session.updated", handleEvent),
-			subscribe("session.deleted", handleEvent),
-			subscribe("message.updated", handleEvent),
-			subscribe("message.removed", handleEvent),
-		]
+		const eventTypes = [
+			"session.created",
+			"session.updated",
+			"session.deleted",
+			"session.diff",
+			"session.status",
+			"session.error",
+			"message.created",
+			"message.updated",
+			"message.removed",
+			"message.part.updated",
+			"message.part.removed",
+			"todo.updated",
+			"project.updated",
+			"provider.updated",
+			"global.disposed",
+			"server.heartbeat",
+		] as const
+
+		const unsubscribers = eventTypes.map((eventType) => subscribe(eventType, handleEvent))
 
 		return () => {
 			for (const unsub of unsubscribers) {
@@ -146,15 +230,14 @@ function OpenCodeInternalProvider({ url, directory, children }: OpenCodeProvider
 		}
 	}, [subscribe, handleEvent])
 
-	/**
-	 * Sync a specific session (load messages, parts, etc)
-	 * Implementation would call SDK methods to fetch data
-	 */
-	const sync = useCallback(async (sessionID: string) => {
-		// TODO: Implement actual sync via SDK
-		// For now, this is a no-op
-		console.log("Sync session:", sessionID)
-	}, [])
+	// Bootstrap on mount
+	useEffect(() => {
+		bootstrap()
+	}, [bootstrap])
+
+	// Get ready state
+	const dirState = store.directories[directory]
+	const ready = dirState?.ready ?? false
 
 	const value: OpenCodeContextValue = {
 		url,
@@ -164,19 +247,6 @@ function OpenCodeInternalProvider({ url, directory, children }: OpenCodeProvider
 	}
 
 	return <OpenCodeContext.Provider value={value}>{children}</OpenCodeContext.Provider>
-}
-
-/**
- * OpenCodeProvider - Wraps SSEProvider and provides OpenCode context
- */
-export function OpenCodeProvider({ url, directory, children }: OpenCodeProviderProps) {
-	return (
-		<SSEProvider url={url}>
-			<OpenCodeInternalProvider url={url} directory={directory}>
-				{children}
-			</OpenCodeInternalProvider>
-		</SSEProvider>
-	)
 }
 
 /**

@@ -3,30 +3,177 @@
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { ArrowDownIcon } from "lucide-react"
-import type { ComponentProps } from "react"
-import { useCallback } from "react"
-import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom"
+import {
+	createContext,
+	useContext,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	useLayoutEffect,
+	type ComponentProps,
+	type ReactNode,
+} from "react"
 
-export type ConversationProps = ComponentProps<typeof StickToBottom>
+/**
+ * Simple scroll-to-bottom context
+ * Uses instant scroll for auto-scroll (streaming), smooth for manual button
+ */
+interface ScrollContextValue {
+	scrollRef: React.RefObject<HTMLDivElement | null>
+	isAtBottom: boolean
+	/** Smooth scroll to bottom - for manual button clicks */
+	scrollToBottom: () => void
+	/** Instant scroll to bottom - for auto-scroll during streaming */
+	scrollToBottomInstant: () => void
+	/** Whether we're in "stick mode" - auto-scroll on new content */
+	isSticking: boolean
+	setIsSticking: (sticking: boolean) => void
+}
 
-export const Conversation = ({ className, ...props }: ConversationProps) => (
-	<StickToBottom
-		className={cn("relative flex-1 overflow-hidden", className)}
-		initial="instant"
-		resize="instant"
-		role="log"
-		{...props}
-	/>
-)
+const ScrollContext = createContext<ScrollContextValue | null>(null)
 
-export type ConversationContentProps = ComponentProps<typeof StickToBottom.Content>
+function useScrollContext() {
+	const ctx = useContext(ScrollContext)
+	if (!ctx) throw new Error("useScrollContext must be used within Conversation")
+	return ctx
+}
 
-export const ConversationContent = ({ className, ...props }: ConversationContentProps) => (
-	<StickToBottom.Content
-		className={cn("flex flex-col gap-6 px-4 py-6 w-full max-w-4xl mx-auto", className)}
-		{...props}
-	/>
-)
+export type ConversationProps = ComponentProps<"div"> & {
+	children: ReactNode
+}
+
+/**
+ * Conversation container with auto-scroll behavior
+ *
+ * - Scrolls to bottom instantly on initial render
+ * - Sticks to bottom when new content arrives (if user hasn't scrolled up)
+ * - User scrolling up disables stick mode
+ * - Scroll-to-bottom button re-enables stick mode
+ */
+export const Conversation = ({ className, children, ...props }: ConversationProps) => {
+	const scrollRef = useRef<HTMLDivElement>(null)
+	const [isAtBottom, setIsAtBottom] = useState(true)
+	const [isSticking, setIsSticking] = useState(true)
+	const isUserScrolling = useRef(false)
+	const lastScrollTop = useRef(0)
+
+	// Smooth scroll - for manual button clicks
+	const scrollToBottom = useCallback(() => {
+		const el = scrollRef.current
+		if (!el) return
+		el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+		setIsAtBottom(true)
+		setIsSticking(true)
+	}, [])
+
+	// Instant scroll - for auto-scroll during streaming
+	// Using instant prevents bounce from overlapping smooth scrolls
+	const scrollToBottomInstant = useCallback(() => {
+		const el = scrollRef.current
+		if (!el) return
+		el.scrollTop = el.scrollHeight
+		setIsAtBottom(true)
+	}, [])
+
+	// Handle scroll events to detect user scrolling up
+	const handleScroll = useCallback(() => {
+		const el = scrollRef.current
+		if (!el) return
+
+		const { scrollTop, scrollHeight, clientHeight } = el
+		const atBottom = scrollHeight - scrollTop - clientHeight < 100
+
+		setIsAtBottom(atBottom)
+
+		// If user scrolled UP (not down), disable sticking
+		if (scrollTop < lastScrollTop.current && !atBottom) {
+			setIsSticking(false)
+		}
+
+		// If user scrolled to bottom manually, re-enable sticking
+		if (atBottom && !isSticking) {
+			setIsSticking(true)
+		}
+
+		lastScrollTop.current = scrollTop
+	}, [isSticking])
+
+	// Initial scroll to bottom - use layoutEffect to run before paint
+	// Use instant scroll to avoid animation on page load
+	useLayoutEffect(() => {
+		scrollToBottomInstant()
+	}, [scrollToBottomInstant])
+
+	// Auto-scroll when content changes (via ResizeObserver on content)
+	// This is handled in ConversationContent
+
+	const contextValue: ScrollContextValue = {
+		scrollRef,
+		isAtBottom,
+		scrollToBottom,
+		scrollToBottomInstant,
+		isSticking,
+		setIsSticking,
+	}
+
+	return (
+		<ScrollContext.Provider value={contextValue}>
+			<div
+				ref={scrollRef}
+				className={cn("relative flex-1 overflow-y-auto overflow-x-hidden", className)}
+				onScroll={handleScroll}
+				role="log"
+				{...props}
+			>
+				{children}
+			</div>
+		</ScrollContext.Provider>
+	)
+}
+
+export type ConversationContentProps = ComponentProps<"div">
+
+/**
+ * Content wrapper that triggers auto-scroll when content size changes
+ */
+export const ConversationContent = ({
+	className,
+	children,
+	...props
+}: ConversationContentProps) => {
+	const { scrollRef, isSticking, scrollToBottomInstant } = useScrollContext()
+	const contentRef = useRef<HTMLDivElement>(null)
+
+	// Watch for content size changes and auto-scroll if sticking
+	// Uses INSTANT scroll to prevent bounce from overlapping smooth scrolls
+	useEffect(() => {
+		const content = contentRef.current
+		if (!content) return
+
+		const observer = new ResizeObserver(() => {
+			if (isSticking) {
+				// Use requestAnimationFrame to batch with render
+				requestAnimationFrame(() => {
+					scrollToBottomInstant()
+				})
+			}
+		})
+
+		observer.observe(content)
+		return () => observer.disconnect()
+	}, [isSticking, scrollToBottomInstant])
+
+	return (
+		<div
+			ref={contentRef}
+			className={cn("flex flex-col gap-6 px-4 py-6 w-full max-w-4xl mx-auto", className)}
+			{...props}
+		>
+			{children}
+		</div>
+	)
+}
 
 export type ConversationEmptyStateProps = ComponentProps<"div"> & {
 	title?: string
@@ -67,17 +214,13 @@ export const ConversationScrollButton = ({
 	className,
 	...props
 }: ConversationScrollButtonProps) => {
-	const { isAtBottom, scrollToBottom } = useStickToBottomContext()
-
-	const handleScrollToBottom = useCallback(() => {
-		scrollToBottom()
-	}, [scrollToBottom])
+	const { isAtBottom, scrollToBottom } = useScrollContext()
 
 	return (
 		!isAtBottom && (
 			<Button
-				className={cn("absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full", className)}
-				onClick={handleScrollToBottom}
+				className={cn("fixed bottom-24 left-1/2 -translate-x-1/2 rounded-full z-10", className)}
+				onClick={scrollToBottom}
 				size="icon"
 				type="button"
 				variant="outline"

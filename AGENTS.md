@@ -143,9 +143,25 @@ bun dev
 # Build for production
 bun build
 
-# Type check (uses typescript-go if installed, fallback to tsc)
+# Type check (ALWAYS use turbo for full monorepo check)
 bun run typecheck
 ```
+
+### Type Checking (MANDATORY)
+
+**CRITICAL:** Always run typecheck via turbo to check the full monorepo:
+
+```bash
+# ✅ CORRECT - Full monorepo typecheck
+bun run typecheck          # Runs: turbo type-check
+
+# ❌ WRONG - Only checks single package
+cd apps/web && bun run type-check
+```
+
+**Why?** Changes in one package can break types in another. Turbo runs `type-check` across all workspaces with proper dependency ordering.
+
+**Before committing:** Run `bun run typecheck` from repo root. Fix all errors.
 
 ### Code Quality
 
@@ -189,6 +205,30 @@ RED → GREEN → REFACTOR
 **Bug fixes:** Write test that reproduces bug FIRST, then fix. Prevents regression forever.
 
 See `@knowledge/tdd-patterns.md` for full doctrine.
+
+### Fix Broken Shit (Non-Negotiable)
+
+```
+FIND IT → FIX IT → DON'T BLAME OTHERS
+```
+
+**If you encounter broken code, fix it. No excuses.**
+
+1. **Pre-existing type errors?** Fix them.
+2. **Failing tests unrelated to your task?** Fix them or file a cell.
+3. **Broken imports?** Fix them.
+4. **Dead code?** Delete it.
+
+**What NOT to do:**
+
+- ❌ "That's a pre-existing issue" (it's YOUR issue now)
+- ❌ "Another agent broke this" (doesn't matter, fix it)
+- ❌ "Out of scope" (broken code is always in scope)
+- ❌ Leave `// TODO` comments for others (do it yourself)
+
+**The codebase should be BETTER after every session, not just different.**
+
+If you can't fix it immediately, file a hive cell with priority 1. Don't leave landmines for the next agent.
 
 ### Dependency Management
 

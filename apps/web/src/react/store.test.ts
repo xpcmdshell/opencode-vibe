@@ -12,6 +12,7 @@ type Session = {
 	time: {
 		created: number
 		updated: number
+		archived?: number
 	}
 }
 
@@ -22,142 +23,379 @@ type Message = {
 	time?: { created: number; completed?: number }
 }
 
+type Part = {
+	id: string
+	messageID: string
+	type: string
+	content: string
+}
+
+type SessionStatus = "pending" | "running" | "completed" | "error"
+
+type Todo = {
+	id: string
+	sessionID: string
+	content: string
+	completed: boolean
+}
+
+type FileDiff = {
+	path: string
+	additions: number
+	deletions: number
+}
+
+const TEST_DIRECTORY = "/test"
+
 describe("OpencodeStore", () => {
 	// Reset store before each test to avoid state leakage
 	beforeEach(() => {
 		useOpencodeStore.setState({
-			sessions: [],
-			messages: {},
+			directories: {},
 		})
 	})
 
 	describe("Initial State", () => {
-		test("starts with empty sessions and messages", () => {
+		test("starts with empty directories", () => {
 			const store = useOpencodeStore.getState()
-			expect(store.sessions).toEqual([])
-			expect(Object.keys(store.messages)).toHaveLength(0)
+			expect(Object.keys(store.directories)).toHaveLength(0)
+		})
+
+		test("initDirectory creates empty DirectoryState", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Re-fetch state after mutation
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir).toBeDefined()
+			expect(dir.ready).toBe(false)
+			expect(dir.sessions).toEqual([])
+			expect(dir.sessionStatus).toEqual({})
+			expect(dir.sessionDiff).toEqual({})
+			expect(dir.todos).toEqual({})
+			expect(dir.messages).toEqual({})
+			expect(dir.parts).toEqual({})
+		})
+
+		test("initDirectory is idempotent (no-op if already exists)", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const session: Session = {
+				id: "session-1",
+				title: "Test",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: session },
+			})
+
+			// Call initDirectory again
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Data should still be there
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.sessions).toHaveLength(1)
 		})
 	})
 
-	describe("Session Management", () => {
-		test("addSession inserts session in sorted order", () => {
+	describe("handleEvent - session.created", () => {
+		test("inserts new session in sorted order", () => {
 			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
 
-			// Insert in non-sorted order to test binary insert
 			const sessionC: Session = {
 				id: "session-c",
 				title: "Session C",
-				directory: "/test",
+				directory: TEST_DIRECTORY,
 				time: { created: Date.now(), updated: Date.now() },
 			}
 			const sessionA: Session = {
 				id: "session-a",
 				title: "Session A",
-				directory: "/test",
+				directory: TEST_DIRECTORY,
 				time: { created: Date.now(), updated: Date.now() },
 			}
 			const sessionB: Session = {
 				id: "session-b",
 				title: "Session B",
-				directory: "/test",
+				directory: TEST_DIRECTORY,
 				time: { created: Date.now(), updated: Date.now() },
 			}
 
-			store.addSession(sessionC)
-			store.addSession(sessionA)
-			store.addSession(sessionB)
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.created",
+				properties: { info: sessionC },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.created",
+				properties: { info: sessionA },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.created",
+				properties: { info: sessionB },
+			})
 
-			const sessions = useOpencodeStore.getState().sessions
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
 			expect(sessions).toHaveLength(3)
 			expect(sessions[0].id).toBe("session-a")
 			expect(sessions[1].id).toBe("session-b")
 			expect(sessions[2].id).toBe("session-c")
 		})
 
-		test("getSession returns session by id using binary search", () => {
-			const store = useOpencodeStore.getState()
-
-			const session1: Session = {
-				id: "session-1",
-				title: "Session 1",
-				directory: "/test",
-				time: { created: Date.now(), updated: Date.now() },
-			}
-			const session2: Session = {
-				id: "session-2",
-				title: "Session 2",
-				directory: "/test",
-				time: { created: Date.now(), updated: Date.now() },
-			}
-
-			store.addSession(session1)
-			store.addSession(session2)
-
-			const found = store.getSession("session-2")
-			expect(found).toBeDefined()
-			expect(found?.id).toBe("session-2")
-			expect(found?.title).toBe("Session 2")
-
-			const notFound = store.getSession("session-999")
-			expect(notFound).toBeUndefined()
-		})
-
-		test("updateSession updates existing session", () => {
+		test("auto-creates directory if not initialized", () => {
 			const store = useOpencodeStore.getState()
 
 			const session: Session = {
 				id: "session-1",
-				title: "Original Title",
-				directory: "/test",
+				title: "Test",
+				directory: TEST_DIRECTORY,
 				time: { created: Date.now(), updated: Date.now() },
 			}
 
-			store.addSession(session)
-
-			const updatedTime = Date.now() + 1000
-			store.updateSession("session-1", (draft) => {
-				draft.title = "Updated Title"
-				draft.time.updated = updatedTime
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.created",
+				properties: { info: session },
 			})
 
-			const updated = store.getSession("session-1")
-			expect(updated?.title).toBe("Updated Title")
-			expect(updated?.time.updated).toBe(updatedTime)
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir).toBeDefined()
+			expect(dir.sessions).toHaveLength(1)
+		})
+	})
+
+	describe("handleEvent - session.updated", () => {
+		test("inserts new session in sorted order", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const sessionC: Session = {
+				id: "session-c",
+				title: "Session C",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+			const sessionA: Session = {
+				id: "session-a",
+				title: "Session A",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+			const sessionB: Session = {
+				id: "session-b",
+				title: "Session B",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: sessionC },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: sessionA },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: sessionB },
+			})
+
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			expect(sessions).toHaveLength(3)
+			expect(sessions[0].id).toBe("session-a")
+			expect(sessions[1].id).toBe("session-b")
+			expect(sessions[2].id).toBe("session-c")
 		})
 
-		test("removeSession removes session by id", () => {
+		test("updates existing session", () => {
 			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const session: Session = {
+				id: "session-1",
+				title: "Original Title",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: session },
+			})
+
+			const updatedSession: Session = {
+				...session,
+				title: "Updated Title",
+				time: { ...session.time, updated: Date.now() + 1000 },
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: updatedSession },
+			})
+
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			expect(sessions).toHaveLength(1)
+			expect(sessions[0].title).toBe("Updated Title")
+		})
+
+		test("removes archived session", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const session: Session = {
+				id: "session-1",
+				title: "To Archive",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: session },
+			})
+
+			const archivedSession: Session = {
+				...session,
+				time: { ...session.time, archived: Date.now() },
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: archivedSession },
+			})
+
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			expect(sessions).toHaveLength(0)
+		})
+
+		test("auto-creates directory if not initialized", () => {
+			const store = useOpencodeStore.getState()
+
+			const session: Session = {
+				id: "session-1",
+				title: "Test",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: session },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir).toBeDefined()
+			expect(dir.sessions).toHaveLength(1)
+		})
+	})
+
+	describe("handleEvent - session.status", () => {
+		test("stores session status", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.status",
+				properties: { sessionID: "session-1", status: "running" },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.sessionStatus["session-1"]).toBe("running")
+		})
+	})
+
+	describe("handleEvent - session.diff", () => {
+		test("stores session diff", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const diff: FileDiff[] = [{ path: "src/app.ts", additions: 10, deletions: 5 }]
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.diff",
+				properties: { sessionID: "session-1", diff },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.sessionDiff["session-1"]).toEqual(diff)
+		})
+	})
+
+	describe("handleEvent - session.deleted", () => {
+		test("removes session by id", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
 
 			const session1: Session = {
 				id: "session-1",
-				title: "Session 1",
-				directory: "/test",
+				title: "First",
+				directory: TEST_DIRECTORY,
 				time: { created: Date.now(), updated: Date.now() },
 			}
 			const session2: Session = {
 				id: "session-2",
-				title: "Session 2",
-				directory: "/test",
+				title: "Second",
+				directory: TEST_DIRECTORY,
 				time: { created: Date.now(), updated: Date.now() },
 			}
 
-			store.addSession(session1)
-			store.addSession(session2)
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.created",
+				properties: { info: session1 },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.created",
+				properties: { info: session2 },
+			})
 
-			store.removeSession("session-1")
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.deleted",
+				properties: { sessionID: "session-1" },
+			})
 
-			const sessions = useOpencodeStore.getState().sessions
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
 			expect(sessions).toHaveLength(1)
 			expect(sessions[0].id).toBe("session-2")
-			expect(store.getSession("session-1")).toBeUndefined()
+		})
+
+		test("no-op when session not found", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.deleted",
+				properties: { sessionID: "non-existent" },
+			})
+
+			// Should not throw
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			expect(sessions).toHaveLength(0)
+		})
+
+		test("auto-creates directory if not initialized", () => {
+			const store = useOpencodeStore.getState()
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.deleted",
+				properties: { sessionID: "session-1" },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir).toBeDefined()
+			// Deleting non-existent session on new directory is no-op
+			expect(dir.sessions).toHaveLength(0)
 		})
 	})
 
-	describe("Message Management", () => {
-		test("addMessage inserts message in sorted order for session", () => {
+	describe("handleEvent - message.updated", () => {
+		test("inserts new message in sorted order", () => {
 			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
 
-			// Insert messages in non-sorted order
 			const messageC: Message = {
 				id: "msg-c",
 				sessionID: "session-1",
@@ -174,55 +412,29 @@ describe("OpencodeStore", () => {
 				role: "assistant",
 			}
 
-			store.addMessage(messageC)
-			store.addMessage(messageA)
-			store.addMessage(messageB)
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: messageC },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: messageA },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: messageB },
+			})
 
-			const messages = store.getMessages("session-1")
+			const messages = useOpencodeStore.getState().directories[TEST_DIRECTORY].messages["session-1"]
 			expect(messages).toHaveLength(3)
 			expect(messages[0].id).toBe("msg-a")
 			expect(messages[1].id).toBe("msg-b")
 			expect(messages[2].id).toBe("msg-c")
 		})
 
-		test("getMessages returns messages for session", () => {
+		test("updates existing message", () => {
 			const store = useOpencodeStore.getState()
-
-			const msg1: Message = {
-				id: "msg-1",
-				sessionID: "session-1",
-				role: "user",
-			}
-			const msg2: Message = {
-				id: "msg-2",
-				sessionID: "session-1",
-				role: "assistant",
-			}
-			const msg3: Message = {
-				id: "msg-3",
-				sessionID: "session-2",
-				role: "user",
-			}
-
-			store.addMessage(msg1)
-			store.addMessage(msg2)
-			store.addMessage(msg3)
-
-			const session1Messages = store.getMessages("session-1")
-			expect(session1Messages).toHaveLength(2)
-			expect(session1Messages[0].id).toBe("msg-1")
-			expect(session1Messages[1].id).toBe("msg-2")
-
-			const session2Messages = store.getMessages("session-2")
-			expect(session2Messages).toHaveLength(1)
-			expect(session2Messages[0].id).toBe("msg-3")
-
-			const emptyMessages = store.getMessages("session-999")
-			expect(emptyMessages).toEqual([])
-		})
-
-		test("updateMessage updates existing message", () => {
-			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
 
 			const message: Message = {
 				id: "msg-1",
@@ -230,21 +442,32 @@ describe("OpencodeStore", () => {
 				role: "user",
 			}
 
-			store.addMessage(message)
-
-			const completedTime = Date.now()
-			store.updateMessage("session-1", "msg-1", (draft) => {
-				draft.role = "assistant"
-				draft.time = { created: Date.now(), completed: completedTime }
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
 			})
 
-			const messages = store.getMessages("session-1")
-			expect(messages[0].role).toBe("assistant")
-			expect(messages[0].time?.completed).toBe(completedTime)
-		})
+			const updatedMessage: Message = {
+				...message,
+				role: "assistant",
+				time: { created: Date.now(), completed: Date.now() },
+			}
 
-		test("removeMessage removes message by id", () => {
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: updatedMessage },
+			})
+
+			const messages = useOpencodeStore.getState().directories[TEST_DIRECTORY].messages["session-1"]
+			expect(messages).toHaveLength(1)
+			expect(messages[0].role).toBe("assistant")
+		})
+	})
+
+	describe("handleEvent - message.removed", () => {
+		test("removes message by id", () => {
 			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
 
 			const msg1: Message = {
 				id: "msg-1",
@@ -257,56 +480,310 @@ describe("OpencodeStore", () => {
 				role: "assistant",
 			}
 
-			store.addMessage(msg1)
-			store.addMessage(msg2)
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: msg1 },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: msg2 },
+			})
 
-			store.removeMessage("session-1", "msg-1")
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.removed",
+				properties: { sessionID: "session-1", messageID: "msg-1" },
+			})
 
-			const messages = store.getMessages("session-1")
+			const messages = useOpencodeStore.getState().directories[TEST_DIRECTORY].messages["session-1"]
 			expect(messages).toHaveLength(1)
 			expect(messages[0].id).toBe("msg-2")
+		})
+	})
+
+	describe("handleEvent - message.part.updated", () => {
+		test("inserts new part in sorted order", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const partC: Part = {
+				id: "part-c",
+				messageID: "msg-1",
+				type: "text",
+				content: "C",
+			}
+			const partA: Part = {
+				id: "part-a",
+				messageID: "msg-1",
+				type: "text",
+				content: "A",
+			}
+			const partB: Part = {
+				id: "part-b",
+				messageID: "msg-1",
+				type: "text",
+				content: "B",
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: partC },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: partA },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: partB },
+			})
+
+			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY].parts["msg-1"]
+			expect(parts).toHaveLength(3)
+			expect(parts[0].id).toBe("part-a")
+			expect(parts[1].id).toBe("part-b")
+			expect(parts[2].id).toBe("part-c")
+		})
+
+		test("updates existing part", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const part: Part = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "text",
+				content: "Original",
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part },
+			})
+
+			const updatedPart: Part = {
+				...part,
+				content: "Updated",
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: updatedPart },
+			})
+
+			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY].parts["msg-1"]
+			expect(parts).toHaveLength(1)
+			expect(parts[0].content).toBe("Updated")
+		})
+	})
+
+	describe("handleEvent - message.part.removed", () => {
+		test("removes part by id", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const part1: Part = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "text",
+				content: "A",
+			}
+			const part2: Part = {
+				id: "part-2",
+				messageID: "msg-1",
+				type: "text",
+				content: "B",
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: part1 },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: part2 },
+			})
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.removed",
+				properties: { messageID: "msg-1", partID: "part-1" },
+			})
+
+			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY].parts["msg-1"]
+			expect(parts).toHaveLength(1)
+			expect(parts[0].id).toBe("part-2")
+		})
+	})
+
+	describe("handleEvent - todo.updated", () => {
+		test("stores todos for session", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const todos: Todo[] = [
+				{
+					id: "todo-1",
+					sessionID: "session-1",
+					content: "Task 1",
+					completed: false,
+				},
+				{
+					id: "todo-2",
+					sessionID: "session-1",
+					content: "Task 2",
+					completed: true,
+				},
+			]
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "todo.updated",
+				properties: { sessionID: "session-1", todos },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.todos["session-1"]).toEqual(todos)
+		})
+	})
+
+	describe("setSessionReady", () => {
+		test("sets ready flag for directory", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY].ready).toBe(false)
+
+			store.setSessionReady(TEST_DIRECTORY, true)
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY].ready).toBe(true)
+		})
+	})
+
+	describe("setSessions", () => {
+		test("sets sessions array sorted by id", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const sessions: Session[] = [
+				{
+					id: "session-c",
+					title: "C",
+					directory: TEST_DIRECTORY,
+					time: { created: 3, updated: 3 },
+				},
+				{
+					id: "session-a",
+					title: "A",
+					directory: TEST_DIRECTORY,
+					time: { created: 1, updated: 1 },
+				},
+				{
+					id: "session-b",
+					title: "B",
+					directory: TEST_DIRECTORY,
+					time: { created: 2, updated: 2 },
+				},
+			]
+
+			store.setSessions(TEST_DIRECTORY, sessions)
+
+			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			expect(sorted).toHaveLength(3)
+			expect(sorted[0].id).toBe("session-a")
+			expect(sorted[1].id).toBe("session-b")
+			expect(sorted[2].id).toBe("session-c")
+		})
+	})
+
+	describe("setMessages", () => {
+		test("sets messages array sorted by id", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const messages: Message[] = [
+				{ id: "msg-c", sessionID: "session-1", role: "user" },
+				{ id: "msg-a", sessionID: "session-1", role: "user" },
+				{ id: "msg-b", sessionID: "session-1", role: "assistant" },
+			]
+
+			store.setMessages(TEST_DIRECTORY, "session-1", messages)
+
+			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY].messages["session-1"]
+			expect(sorted).toHaveLength(3)
+			expect(sorted[0].id).toBe("msg-a")
+			expect(sorted[1].id).toBe("msg-b")
+			expect(sorted[2].id).toBe("msg-c")
+		})
+	})
+
+	describe("setParts", () => {
+		test("sets parts array sorted by id", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const parts: Part[] = [
+				{ id: "part-c", messageID: "msg-1", type: "text", content: "C" },
+				{ id: "part-a", messageID: "msg-1", type: "text", content: "A" },
+				{ id: "part-b", messageID: "msg-1", type: "text", content: "B" },
+			]
+
+			store.setParts(TEST_DIRECTORY, "msg-1", parts)
+
+			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY].parts["msg-1"]
+			expect(sorted).toHaveLength(3)
+			expect(sorted[0].id).toBe("part-a")
+			expect(sorted[1].id).toBe("part-b")
+			expect(sorted[2].id).toBe("part-c")
 		})
 	})
 
 	describe("Binary Search Correctness", () => {
 		test("handles ULID-compatible IDs (lexicographic sorting)", () => {
 			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
 
 			// ULIDs sort lexicographically by timestamp
 			const session1: Session = {
 				id: "01HX0000000000000000000000", // Earlier timestamp
 				title: "First",
-				directory: "/test",
+				directory: TEST_DIRECTORY,
 				time: { created: 1, updated: 1 },
 			}
 			const session2: Session = {
 				id: "01HX0000000000000000000001", // Later timestamp
 				title: "Second",
-				directory: "/test",
+				directory: TEST_DIRECTORY,
 				time: { created: 2, updated: 2 },
 			}
 
-			store.addSession(session2)
-			store.addSession(session1)
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: session2 },
+			})
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: session1 },
+			})
 
-			const sessions = useOpencodeStore.getState().sessions
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
 			expect(sessions[0].id).toBe("01HX0000000000000000000000")
 			expect(sessions[1].id).toBe("01HX0000000000000000000001")
 		})
 
 		test("immutability - original arrays not modified", () => {
 			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
 
 			const session: Session = {
 				id: "session-1",
 				title: "Test",
-				directory: "/test",
+				directory: TEST_DIRECTORY,
 				time: { created: Date.now(), updated: Date.now() },
 			}
 
-			const beforeSessions = useOpencodeStore.getState().sessions
-			store.addSession(session)
-			const afterSessions = useOpencodeStore.getState().sessions
+			const beforeSessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: session },
+			})
+			const afterSessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
 
 			// Different array references (immutable)
 			expect(beforeSessions).not.toBe(afterSessions)
@@ -316,53 +793,705 @@ describe("OpencodeStore", () => {
 	})
 
 	describe("Edge Cases", () => {
-		test("handles empty arrays", () => {
-			const store = useOpencodeStore.getState()
-
-			expect(store.getSession("any-id")).toBeUndefined()
-			expect(store.getMessages("any-session")).toEqual([])
-		})
-
-		test("handles single item arrays", () => {
+		test("handleEvent on non-existent directory auto-creates it", () => {
 			const store = useOpencodeStore.getState()
 
 			const session: Session = {
-				id: "only-session",
-				title: "Only",
-				directory: "/test",
+				id: "session-1",
+				title: "Test",
+				directory: TEST_DIRECTORY,
 				time: { created: Date.now(), updated: Date.now() },
 			}
 
-			store.addSession(session)
-			expect(store.getSession("only-session")).toBeDefined()
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.updated",
+				properties: { info: session },
+			})
 
-			store.removeSession("only-session")
-			expect(useOpencodeStore.getState().sessions).toHaveLength(0)
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]).toBeDefined()
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions).toHaveLength(1)
 		})
 
-		test("handles duplicate IDs gracefully", () => {
+		test("setSessionReady on non-existent directory is no-op", () => {
+			const store = useOpencodeStore.getState()
+			store.setSessionReady("/non-existent", true)
+
+			expect(useOpencodeStore.getState().directories["/non-existent"]).toBeUndefined()
+		})
+
+		test("setSessions on non-existent directory is no-op", () => {
+			const store = useOpencodeStore.getState()
+			store.setSessions("/non-existent", [])
+
+			expect(useOpencodeStore.getState().directories["/non-existent"]).toBeUndefined()
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════
+	// CONVENIENCE METHODS - Session
+	// ═══════════════════════════════════════════════════════════════
+	describe("getSession", () => {
+		test("returns session by id", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const session: Session = {
+				id: "session-1",
+				title: "Test Session",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			store.addSession(TEST_DIRECTORY, session)
+
+			const result = useOpencodeStore.getState().getSession(TEST_DIRECTORY, "session-1")
+			expect(result).toEqual(session)
+		})
+
+		test("returns undefined when session not found", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const result = useOpencodeStore.getState().getSession(TEST_DIRECTORY, "non-existent")
+			expect(result).toBeUndefined()
+		})
+
+		test("returns undefined when directory does not exist", () => {
+			const result = useOpencodeStore.getState().getSession("/non-existent", "session-1")
+			expect(result).toBeUndefined()
+		})
+	})
+
+	describe("getSessions", () => {
+		test("returns all sessions for directory", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const sessions: Session[] = [
+				{
+					id: "session-a",
+					title: "A",
+					directory: TEST_DIRECTORY,
+					time: { created: 1, updated: 1 },
+				},
+				{
+					id: "session-b",
+					title: "B",
+					directory: TEST_DIRECTORY,
+					time: { created: 2, updated: 2 },
+				},
+			]
+
+			sessions.forEach((s) => store.addSession(TEST_DIRECTORY, s))
+
+			const result = useOpencodeStore.getState().getSessions(TEST_DIRECTORY)
+			expect(result).toHaveLength(2)
+			expect(result[0].id).toBe("session-a")
+			expect(result[1].id).toBe("session-b")
+		})
+
+		test("returns empty array when no sessions", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const result = useOpencodeStore.getState().getSessions(TEST_DIRECTORY)
+			expect(result).toEqual([])
+		})
+
+		test("returns empty array when directory does not exist", () => {
+			const result = useOpencodeStore.getState().getSessions("/non-existent")
+			expect(result).toEqual([])
+		})
+	})
+
+	describe("addSession", () => {
+		test("adds session in sorted order", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const sessionC: Session = {
+				id: "session-c",
+				title: "C",
+				directory: TEST_DIRECTORY,
+				time: { created: 3, updated: 3 },
+			}
+			const sessionA: Session = {
+				id: "session-a",
+				title: "A",
+				directory: TEST_DIRECTORY,
+				time: { created: 1, updated: 1 },
+			}
+
+			store.addSession(TEST_DIRECTORY, sessionC)
+			store.addSession(TEST_DIRECTORY, sessionA)
+
+			const sessions = useOpencodeStore.getState().getSessions(TEST_DIRECTORY)
+			expect(sessions).toHaveLength(2)
+			expect(sessions[0].id).toBe("session-a")
+			expect(sessions[1].id).toBe("session-c")
+		})
+
+		test("auto-creates directory if not exists", () => {
 			const store = useOpencodeStore.getState()
 
+			const session: Session = {
+				id: "session-1",
+				title: "Test",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			store.addSession(TEST_DIRECTORY, session)
+
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]).toBeDefined()
+			expect(useOpencodeStore.getState().getSessions(TEST_DIRECTORY)).toHaveLength(1)
+		})
+	})
+
+	describe("updateSession", () => {
+		test("updates existing session with updater function", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const session: Session = {
+				id: "session-1",
+				title: "Original",
+				directory: TEST_DIRECTORY,
+				time: { created: 1, updated: 1 },
+			}
+
+			store.addSession(TEST_DIRECTORY, session)
+
+			store.updateSession(TEST_DIRECTORY, "session-1", (draft) => {
+				draft.title = "Updated"
+				draft.time.updated = 2
+			})
+
+			const updated = useOpencodeStore.getState().getSession(TEST_DIRECTORY, "session-1")
+			expect(updated?.title).toBe("Updated")
+			expect(updated?.time.updated).toBe(2)
+		})
+
+		test("no-op when session not found", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			store.updateSession(TEST_DIRECTORY, "non-existent", (draft) => {
+				draft.title = "Should not crash"
+			})
+
+			// Should not throw, just be a no-op
+			expect(useOpencodeStore.getState().getSessions(TEST_DIRECTORY)).toHaveLength(0)
+		})
+	})
+
+	describe("removeSession", () => {
+		test("removes session by id", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
 			const session1: Session = {
-				id: "duplicate",
+				id: "session-1",
 				title: "First",
-				directory: "/test",
+				directory: TEST_DIRECTORY,
 				time: { created: 1, updated: 1 },
 			}
 			const session2: Session = {
-				id: "duplicate",
+				id: "session-2",
 				title: "Second",
-				directory: "/test",
+				directory: TEST_DIRECTORY,
 				time: { created: 2, updated: 2 },
 			}
 
-			store.addSession(session1)
-			store.addSession(session2)
+			store.addSession(TEST_DIRECTORY, session1)
+			store.addSession(TEST_DIRECTORY, session2)
 
-			const sessions = useOpencodeStore.getState().sessions
-			// Binary.insert places duplicates at leftmost position
-			// So we should have both, but second one should be first
-			expect(sessions).toHaveLength(2)
+			store.removeSession(TEST_DIRECTORY, "session-1")
+
+			const sessions = useOpencodeStore.getState().getSessions(TEST_DIRECTORY)
+			expect(sessions).toHaveLength(1)
+			expect(sessions[0].id).toBe("session-2")
+		})
+
+		test("no-op when session not found", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			store.removeSession(TEST_DIRECTORY, "non-existent")
+
+			// Should not throw
+			expect(useOpencodeStore.getState().getSessions(TEST_DIRECTORY)).toHaveLength(0)
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════
+	// CONVENIENCE METHODS - Message
+	// ═══════════════════════════════════════════════════════════════
+	describe("getMessages", () => {
+		test("returns all messages for session", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const messages: Message[] = [
+				{ id: "msg-a", sessionID: "session-1", role: "user" },
+				{ id: "msg-b", sessionID: "session-1", role: "assistant" },
+			]
+
+			messages.forEach((m) => store.addMessage(TEST_DIRECTORY, m))
+
+			const result = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
+			expect(result).toHaveLength(2)
+			expect(result[0].id).toBe("msg-a")
+			expect(result[1].id).toBe("msg-b")
+		})
+
+		test("returns empty array when no messages for session", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const result = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
+			expect(result).toEqual([])
+		})
+
+		test("returns empty array when directory does not exist", () => {
+			const result = useOpencodeStore.getState().getMessages("/non-existent", "session-1")
+			expect(result).toEqual([])
+		})
+	})
+
+	describe("addMessage", () => {
+		test("adds message in sorted order", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const msgC: Message = {
+				id: "msg-c",
+				sessionID: "session-1",
+				role: "user",
+			}
+			const msgA: Message = {
+				id: "msg-a",
+				sessionID: "session-1",
+				role: "user",
+			}
+
+			store.addMessage(TEST_DIRECTORY, msgC)
+			store.addMessage(TEST_DIRECTORY, msgA)
+
+			const messages = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
+			expect(messages).toHaveLength(2)
+			expect(messages[0].id).toBe("msg-a")
+			expect(messages[1].id).toBe("msg-c")
+		})
+
+		test("auto-creates directory if not exists", () => {
+			const store = useOpencodeStore.getState()
+
+			const message: Message = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "user",
+			}
+
+			store.addMessage(TEST_DIRECTORY, message)
+
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]).toBeDefined()
+			expect(useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")).toHaveLength(1)
+		})
+	})
+
+	describe("updateMessage", () => {
+		test("updates existing message with updater function", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const message: Message = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "user",
+				time: { created: 1 },
+			}
+
+			store.addMessage(TEST_DIRECTORY, message)
+
+			store.updateMessage(TEST_DIRECTORY, "session-1", "msg-1", (draft) => {
+				draft.role = "assistant"
+				if (draft.time) {
+					draft.time.completed = 2
+				}
+			})
+
+			const messages = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
+			expect(messages[0].role).toBe("assistant")
+			expect(messages[0].time?.completed).toBe(2)
+		})
+
+		test("no-op when message not found", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			store.updateMessage(TEST_DIRECTORY, "session-1", "non-existent", (draft) => {
+				draft.role = "Should not crash"
+			})
+
+			// Should not throw
+			expect(useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")).toHaveLength(0)
+		})
+	})
+
+	describe("removeMessage", () => {
+		test("removes message by id", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const msg1: Message = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "user",
+			}
+			const msg2: Message = {
+				id: "msg-2",
+				sessionID: "session-1",
+				role: "assistant",
+			}
+
+			store.addMessage(TEST_DIRECTORY, msg1)
+			store.addMessage(TEST_DIRECTORY, msg2)
+
+			store.removeMessage(TEST_DIRECTORY, "session-1", "msg-1")
+
+			const messages = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
+			expect(messages).toHaveLength(1)
+			expect(messages[0].id).toBe("msg-2")
+		})
+
+		test("no-op when message not found", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			store.removeMessage(TEST_DIRECTORY, "session-1", "non-existent")
+
+			// Should not throw
+			expect(useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")).toHaveLength(0)
+		})
+	})
+
+	describe("Provider/Project Events", () => {
+		test("handles provider.updated event (logs only, no state change)", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Mock console.log to verify it's called
+			const originalLog = console.log
+			const logCalls: any[] = []
+			console.log = (...args: any[]) => {
+				logCalls.push(args)
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "provider.updated",
+				properties: { id: "provider-1", name: "Test Provider" },
+			})
+
+			// Restore console.log
+			console.log = originalLog
+
+			// Verify log was called with expected args
+			expect(logCalls.some((call) => call[0] === "[SSE] provider.updated:")).toBe(true)
+
+			// Note: No state change expected until DirectoryState has providers array
+		})
+
+		test("handles project.updated event (logs only, no state change)", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Mock console.log to verify it's called
+			const originalLog = console.log
+			const logCalls: any[] = []
+			console.log = (...args: any[]) => {
+				logCalls.push(args)
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "project.updated",
+				properties: { id: "project-1", name: "Test Project" },
+			})
+
+			// Restore console.log
+			console.log = originalLog
+
+			// Verify log was called with expected args
+			expect(logCalls.some((call) => call[0] === "[SSE] project.updated:")).toBe(true)
+
+			// Note: No state change expected until DirectoryState has projects array
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════
+	// SSE EVENT HANDLER (GlobalEvent wrapper)
+	// ═══════════════════════════════════════════════════════════════
+	describe("handleSSEEvent", () => {
+		test("auto-creates directory if missing (prevents dropped events)", () => {
+			const store = useOpencodeStore.getState()
+			// Do NOT call initDirectory - verify events aren't dropped for uninitialized directories
+
+			const session: Session = {
+				id: "session-1",
+				title: "Test Session",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			// Simulate GlobalEvent from SSE arriving for a directory not yet initialized
+			// This happens when:
+			// 1. SSE connection establishes before directory is bootstrapped
+			// 2. SSE event arrives for a different project directory
+			// 3. Race condition between bootstrap and first SSE event
+			const globalEvent: any = {
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "session.created",
+					properties: { info: session },
+				},
+			}
+
+			// BEFORE: directory should not exist
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]).toBeUndefined()
+
+			// Call handleSSEEvent - should NOT drop the event silently
+			store.handleSSEEvent(globalEvent)
+
+			// AFTER: directory auto-created with empty initial state
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir).toBeDefined()
+			expect(dir.ready).toBe(false) // Not bootstrapped yet
+			expect(dir.sessions).toHaveLength(1) // Session from SSE event was added (NOT dropped)
+			expect(dir.sessionStatus).toEqual({})
+			expect(dir.sessionDiff).toEqual({})
+			expect(dir.todos).toEqual({})
+			expect(dir.messages).toEqual({})
+			expect(dir.parts).toEqual({})
+		})
+
+		test("handles session.status event for uninitialized directory", () => {
+			const store = useOpencodeStore.getState()
+			// Specific scenario: green dot indicators rely on session.status events
+			// If directory doesn't exist when session.status arrives, indicator won't show
+
+			const globalEvent: any = {
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "session.status",
+					properties: {
+						sessionID: "session-1",
+						status: "running" as SessionStatus,
+					},
+				},
+			}
+
+			// BEFORE: no directory
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]).toBeUndefined()
+
+			// Receive session.status event via SSE
+			store.handleSSEEvent(globalEvent)
+
+			// AFTER: directory created, status stored (green dot can render)
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir).toBeDefined()
+			expect(dir.sessionStatus["session-1"]).toBe("running")
+		})
+
+		test("routes GlobalEvent to handleEvent with correct directory and payload", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const session: Session = {
+				id: "session-1",
+				title: "Test Session",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			// Simulate GlobalEvent from SSE
+			// biome-ignore lint: using `as any` to bypass strict SDK types in tests
+			const globalEvent: any = {
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "session.created",
+					properties: { info: session },
+				},
+			}
+
+			store.handleSSEEvent(globalEvent)
+
+			// Verify session was added
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			expect(sessions).toHaveLength(1)
+			expect(sessions[0].id).toBe("session-1")
+		})
+
+		test("handles multiple event types via GlobalEvent", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const session: Session = {
+				id: "session-1",
+				title: "Test",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			const message: Message = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "user",
+			}
+
+			// Session created
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "session.created",
+					properties: { info: session },
+				},
+			} as any)
+
+			// Message updated
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.updated",
+					properties: { info: message },
+				},
+			} as any)
+
+			// Session status
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "session.status",
+					properties: { sessionID: "session-1", status: "running" },
+				},
+			} as any)
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.sessions).toHaveLength(1)
+			expect(dir.messages["session-1"]).toHaveLength(1)
+			expect(dir.sessionStatus["session-1"]).toBe("running")
+		})
+
+		test("auto-creates directory from GlobalEvent", () => {
+			const store = useOpencodeStore.getState()
+
+			const session: Session = {
+				id: "session-1",
+				title: "Test",
+				directory: TEST_DIRECTORY,
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "session.created",
+					properties: { info: session },
+				},
+			} as any)
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir).toBeDefined()
+			expect(dir.sessions).toHaveLength(1)
+		})
+
+		test("handles events from different directories", () => {
+			const store = useOpencodeStore.getState()
+
+			const session1: Session = {
+				id: "session-1",
+				title: "Project A",
+				directory: "/project-a",
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			const session2: Session = {
+				id: "session-2",
+				title: "Project B",
+				directory: "/project-b",
+				time: { created: Date.now(), updated: Date.now() },
+			}
+
+			store.handleSSEEvent({
+				directory: "/project-a",
+				payload: {
+					type: "session.created",
+					properties: { info: session1 },
+				},
+			} as any)
+
+			store.handleSSEEvent({
+				directory: "/project-b",
+				payload: {
+					type: "session.created",
+					properties: { info: session2 },
+				},
+			} as any)
+
+			const dirA = useOpencodeStore.getState().directories["/project-a"]
+			const dirB = useOpencodeStore.getState().directories["/project-b"]
+
+			expect(dirA.sessions).toHaveLength(1)
+			expect(dirA.sessions[0].id).toBe("session-1")
+			expect(dirB.sessions).toHaveLength(1)
+			expect(dirB.sessions[0].id).toBe("session-2")
+		})
+
+		test("messages from different directories do not leak", () => {
+			const store = useOpencodeStore.getState()
+
+			// Create messages in two different directories with same session ID
+			// This simulates the leak scenario where multi-server SSE forwards
+			// events from different projects
+			const message1: Message = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "user",
+			}
+
+			const message2: Message = {
+				id: "msg-2",
+				sessionID: "session-1", // Same session ID, different directory
+				role: "assistant",
+			}
+
+			store.handleSSEEvent({
+				directory: "/project-a",
+				payload: {
+					type: "message.updated",
+					properties: { info: message1 },
+				},
+			} as any)
+
+			store.handleSSEEvent({
+				directory: "/project-b",
+				payload: {
+					type: "message.updated",
+					properties: { info: message2 },
+				},
+			} as any)
+
+			// Each directory should only have its own message
+			const dirA = useOpencodeStore.getState().directories["/project-a"]
+			const dirB = useOpencodeStore.getState().directories["/project-b"]
+
+			expect(dirA.messages["session-1"]).toHaveLength(1)
+			expect(dirA.messages["session-1"][0].id).toBe("msg-1")
+			expect(dirB.messages["session-1"]).toHaveLength(1)
+			expect(dirB.messages["session-1"][0].id).toBe("msg-2")
+
+			// Cross-check: project-a should NOT have project-b's message
+			expect(dirA.messages["session-1"].some((m) => m.id === "msg-2")).toBe(false)
+			expect(dirB.messages["session-1"].some((m) => m.id === "msg-1")).toBe(false)
 		})
 	})
 })

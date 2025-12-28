@@ -13,7 +13,10 @@
 		"lint": "turbo lint",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
-		"typecheck": "tsgo"
+		"typecheck": "turbo type-check",
+		"test": "bun test ./apps/web/src",
+		"test:integration": "bun test ./apps/web/src/react/provider.integration.test.tsx",
+		"test:all": "bun test"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.10",
@@ -22,6 +25,7 @@
 		"@typescript/native-preview": "^7.0.0-dev.20251226.1",
 		"happy-dom": "^20.0.11",
 		"jsdom": "^27.4.0",
+		"msw": "^2.12.7",
 		"oxlint": "^1.35.0",
 		"turbo": "^2.7.2"
 	},

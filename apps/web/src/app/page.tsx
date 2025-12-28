@@ -1,8 +1,7 @@
-import Link from "next/link"
 import { createClient, globalClient } from "@/core/client"
-import { NewSessionButton } from "./session/[id]/new-session-button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { OpenCodeLogo } from "@/components/opencode-logo"
+import { ProjectsList } from "./projects-list"
 
 interface Session {
 	id: string
@@ -28,7 +27,8 @@ interface SessionDisplay {
 	id: string
 	title: string
 	directory: string
-	formattedTime: string
+	formattedTime: string // Kept for initial render, overridden client-side
+	timestamp: number // For live client-side formatting
 }
 
 interface ProjectWithSessions {
@@ -115,6 +115,7 @@ async function getProjectsWithSessions(): Promise<ProjectWithSessions[]> {
 					title: s.title,
 					directory: s.directory,
 					formattedTime: formatRelativeTime(s.time.updated, now),
+					timestamp: s.time.updated,
 				}))
 
 				return {
@@ -172,59 +173,8 @@ export default async function Dashboard() {
 						<h1 className="text-xl font-semibold text-foreground">Projects</h1>
 					</div>
 
-					{/* Projects with Sessions */}
-					<div className="space-y-8">
-						{projectsWithSessions.length === 0 ? (
-							<div className="text-muted-foreground text-center py-12">
-								No projects with sessions yet
-							</div>
-						) : (
-							projectsWithSessions.map(({ project, sessions, name }) => (
-								<div key={project.id} className="space-y-2">
-									{/* Project Header */}
-									<div className="flex items-center gap-3 mb-3">
-										<h2 className="text-lg font-semibold text-foreground">{name}</h2>
-										<span className="text-xs text-muted-foreground">
-											{sessions.length} session
-											{sessions.length !== 1 ? "s" : ""}
-										</span>
-										<div className="ml-auto">
-											<NewSessionButton directory={project.worktree} />
-										</div>
-									</div>
-
-									{/* Sessions List (show top 5) */}
-									<ul className="space-y-1">
-										{sessions.slice(0, 5).map((session) => (
-											<li key={session.id}>
-												<Link
-													href={`/session/${session.id}?dir=${encodeURIComponent(project.worktree)}`}
-													className="block p-3 rounded-lg border border-border bg-card hover:bg-secondary hover:border-accent transition-colors"
-												>
-													{/* Title */}
-													<div className="font-medium text-foreground text-sm line-clamp-1">
-														{session.title || "Untitled Session"}
-													</div>
-
-													{/* Time */}
-													<div className="text-xs text-muted-foreground mt-1">
-														{session.formattedTime}
-													</div>
-												</Link>
-											</li>
-										))}
-									</ul>
-
-									{/* Show more link if there are more sessions */}
-									{sessions.length > 5 && (
-										<div className="text-sm text-muted-foreground pl-3">
-											+{sessions.length - 5} more sessions
-										</div>
-									)}
-								</div>
-							))
-						)}
-					</div>
+					{/* Projects with Sessions - Client component for live updates */}
+					<ProjectsList initialProjects={projectsWithSessions} />
 				</div>
 			</div>
 		</div>

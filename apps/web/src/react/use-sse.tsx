@@ -38,6 +38,7 @@ import {
 	type ReactNode,
 } from "react"
 import type { GlobalEvent } from "@opencode-ai/sdk/client"
+import { EventSourceParserStream } from "eventsource-parser/stream"
 
 /**
  * Event types that can be subscribed to
@@ -97,10 +98,18 @@ interface SSEProviderProps {
 }
 
 /**
+ * Heartbeat timeout in ms (60s = 2x server heartbeat of 30s)
+ * If no event received within this window, connection is considered dead.
+ */
+const HEARTBEAT_TIMEOUT_MS = 60_000
+
+/**
  * SSEProvider - Manages SSE connection and event distribution
  *
  * Wrap your app with this provider to enable SSE subscriptions.
  * Uses fetch-based SSE with exponential backoff (3s → 6s → 12s → 24s → 30s cap).
+ * Uses EventSourceParserStream for standardized SSE parsing.
+ * Includes heartbeat monitoring (60s timeout) and visibility API support.
  *
  * Note: SSE connection only starts on the client (after hydration).
  * During SSR/prerender, the provider renders children without connecting.
@@ -116,11 +125,22 @@ export function SSEProvider({
 	const abortController = useRef<AbortController | null>(null)
 	const connectedRef = useRef(false)
 	const listenersRef = useRef<Map<SSEEventType, Set<SSEEventCallback>>>(new Map())
+	const heartbeatTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+	const isBackgrounded = useRef(false)
+
+	// Store config in ref to avoid recreating connect callback
+	const configRef = useRef({ url, retryDelay, maxRetries })
+	configRef.current = { url, retryDelay, maxRetries }
 
 	/**
 	 * Dispatch event to all subscribers of that event type
+	 * Stored in ref to make connect callback stable
+	 *
+	 * NOTE: We do NOT call store.handleSSEEvent() here. That would bypass
+	 * directory filtering. Instead, OpenCodeProvider subscribes to events
+	 * and calls store.handleEvent() with proper directory scoping.
 	 */
-	const dispatchEvent = useCallback((event: GlobalEvent) => {
+	const dispatchEventRef = useRef((event: GlobalEvent) => {
 		const eventType = event.payload?.type as SSEEventType
 		if (!eventType) return
 
@@ -134,18 +154,50 @@ export function SSEProvider({
 				}
 			}
 		}
-	}, [])
+	})
+
+	/**
+	 * Reset heartbeat timeout - called on every event received
+	 * Stored in ref to make connect callback stable
+	 */
+	const resetHeartbeatRef = useRef((reconnectFn: () => void) => {
+		// Clear existing timeout
+		if (heartbeatTimeout.current) {
+			clearTimeout(heartbeatTimeout.current)
+		}
+		// Set new timeout - if no event in 60s, reconnect
+		heartbeatTimeout.current = setTimeout(() => {
+			console.warn("SSE heartbeat timeout - reconnecting")
+			reconnectFn()
+		}, HEARTBEAT_TIMEOUT_MS)
+	})
 
 	/**
 	 * Connect to SSE endpoint
+	 * IMPORTANT: This callback is stable (no dependencies) to prevent reconnection loops
+	 * Uses refs for all callbacks to maintain stability
 	 */
 	const connect = useCallback(async () => {
+		// Don't connect if backgrounded
+		if (isBackgrounded.current) return
+
+		const {
+			url: currentUrl,
+			retryDelay: currentRetryDelay,
+			maxRetries: currentMaxRetries,
+		} = configRef.current
+
 		// Abort any existing connection
 		abortController.current?.abort()
 		abortController.current = new AbortController()
 
+		// Clear any pending heartbeat timeout
+		if (heartbeatTimeout.current) {
+			clearTimeout(heartbeatTimeout.current)
+		}
+
 		try {
-			const response = await fetch(`${url}/global/event`, {
+			const response = await fetch(`${currentUrl}/global/event`, {
 				signal: abortController.current.signal,
 				headers: {
 					Accept: "text/event-stream",
@@ -165,42 +217,29 @@ export function SSEProvider({
 			retryCount.current = 0
 			connectedRef.current = true
 
-			const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
-			let buffer = ""
+			// Start heartbeat monitoring
+			resetHeartbeatRef.current(connect)
 
+			// Use EventSourceParserStream for standardized SSE parsing
+			const stream = response.body
+				.pipeThrough(new TextDecoderStream())
+				.pipeThrough(new EventSourceParserStream())
+
+			const reader = stream.getReader()
 			while (true) {
 				const { done, value } = await reader.read()
 				if (done) break
 
-				buffer += value
-				const chunks = buffer.split("\n\n")
-				buffer = chunks.pop() ?? ""
-
-				for (const chunk of chunks) {
-					const lines = chunk.split("\n")
-					const dataLines: string[] = []
-
-					for (const line of lines) {
-						if (line.startsWith("data:")) {
-							dataLines.push(line.replace(/^data:\s*/, ""))
-						}
-					}
-
-					if (dataLines.length) {
-						try {
-							const data = JSON.parse(dataLines.join("\n")) as GlobalEvent
-							dispatchEvent(data)
-						} catch (e) {
-							console.error("Failed to parse SSE event:", e)
-						}
-					}
-				}
+				const data = JSON.parse(value.data) as GlobalEvent
+				// Reset heartbeat on every event (including server.heartbeat)
+				resetHeartbeatRef.current(connect)
+				dispatchEventRef.current(data)
 			}
 
 			// Stream ended normally - reconnect
 			connectedRef.current = false
-			if (retryCount.current < maxRetries) {
-				const backoff = Math.min(retryDelay * 2 ** retryCount.current, 30000)
+			if (retryCount.current < currentMaxRetries) {
+				const backoff = Math.min(currentRetryDelay * 2 ** retryCount.current, 30000)
 				retryCount.current++
 				setTimeout(connect, backoff)
 			}
@@ -211,16 +250,18 @@ export function SSEProvider({
 			console.error("SSE connection error:", error)
 
 			// Retry with exponential backoff
-			if (retryCount.current < maxRetries) {
-				const backoff = Math.min(retryDelay * 2 ** retryCount.current, 30000)
+			const { retryDelay: currentRetryDelay, maxRetries: currentMaxRetries } = configRef.current
+			if (retryCount.current < currentMaxRetries) {
+				const backoff = Math.min(currentRetryDelay * 2 ** retryCount.current, 30000)
 				retryCount.current++
 				setTimeout(connect, backoff)
 			}
 		}
-	}, [url, retryDelay, maxRetries, dispatchEvent])
+	}, [])
 
 	/**
 	 * Subscribe to an event type
+	 * @deprecated Use Zustand store selectors instead. SSE events now update store directly.
 	 */
 	const subscribe = useCallback(
 		(eventType: SSEEventType, callback: SSEEventCallback): (() => void) => {
@@ -256,12 +297,39 @@ export function SSEProvider({
 		setMounted(true)
 	}, [])
 
+	// Handle visibility changes - disconnect when backgrounded, reconnect when foregrounded
+	useEffect(() => {
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible") {
+				// App returned to foreground - reconnect
+				isBackgrounded.current = false
+				retryCount.current = 0 // Reset retries on foreground
+				connect()
+			} else {
+				// App went to background - abort connection to save battery
+				isBackgrounded.current = true
+				abortController.current?.abort()
+				if (heartbeatTimeout.current) {
+					clearTimeout(heartbeatTimeout.current)
+				}
+			}
+		}
+
+		document.addEventListener("visibilitychange", handleVisibilityChange)
+		return () => {
+			document.removeEventListener("visibilitychange", handleVisibilityChange)
+		}
+	}, [connect])
+
 	// Connect on mount, cleanup on unmount (client-side only)
 	useEffect(() => {
 		if (!mounted) return
 		connect()
 		return () => {
 			abortController.current?.abort()
+			if (heartbeatTimeout.current) {
+				clearTimeout(heartbeatTimeout.current)
+			}
 		}
 	}, [connect, mounted])
 
@@ -301,130 +369,4 @@ export function useSSE(): SSEContextValue {
 		throw new Error("useSSE must be used within an SSEProvider")
 	}
 	return context
-}
-
-/**
- * SSE hook options (for direct connection without provider)
- */
-export interface SSEOptions {
-	/** Base URL for SSE endpoint (will append /global/event) */
-	url: string
-	/** Called when an event is received */
-	onEvent: (event: GlobalEvent) => void
-	/** Called when an error occurs (before retry) */
-	onError?: (error: Error) => void
-	/** Called when successfully connected */
-	onConnect?: () => void
-	/** Initial retry delay in ms (default: 3000 = 3s) */
-	retryDelay?: number
-	/** Maximum number of retry attempts (default: 10) */
-	maxRetries?: number
-}
-
-/**
- * useSSEDirect - Low-level SSE hook for direct connection
- *
- * Use this when you need direct control over the SSE connection
- * without the provider pattern. For most cases, use SSEProvider + useSSE instead.
- *
- * Features:
- * - Fetch-based SSE (not EventSource) for better control
- * - Exponential backoff: 3s → 6s → 12s → 24s → 30s (capped)
- * - Proper abort controller cleanup
- * - Buffer handling for chunked SSE data
- * - Callbacks: onEvent, onError, onConnect
- * - Returns { reconnect } function for manual reconnection
- */
-export function useSSEDirect({
-	url,
-	onEvent,
-	onError,
-	onConnect,
-	retryDelay = 3000,
-	maxRetries = 10,
-}: SSEOptions) {
-	const retryCount = useRef(0)
-	const abortController = useRef<AbortController | null>(null)
-
-	const connect = useCallback(async () => {
-		// Abort any existing connection
-		abortController.current?.abort()
-		abortController.current = new AbortController()
-
-		try {
-			const response = await fetch(`${url}/global/event`, {
-				signal: abortController.current.signal,
-				headers: {
-					Accept: "text/event-stream",
-					"Cache-Control": "no-cache",
-				},
-			})
-
-			if (!response.ok) {
-				throw new Error(`SSE failed: ${response.status} ${response.statusText}`)
-			}
-
-			if (!response.body) {
-				throw new Error("No body in SSE response")
-			}
-
-			// Reset retry count on successful connection
-			retryCount.current = 0
-			onConnect?.()
-
-			const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
-			let buffer = ""
-
-			while (true) {
-				const { done, value } = await reader.read()
-				if (done) break
-
-				buffer += value
-				const chunks = buffer.split("\n\n")
-				buffer = chunks.pop() ?? ""
-
-				for (const chunk of chunks) {
-					const lines = chunk.split("\n")
-					const dataLines: string[] = []
-
-					for (const line of lines) {
-						if (line.startsWith("data:")) {
-							dataLines.push(line.replace(/^data:\s*/, ""))
-						}
-					}
-
-					if (dataLines.length) {
-						try {
-							const data = JSON.parse(dataLines.join("\n")) as GlobalEvent
-							onEvent(data)
-						} catch (e) {
-							console.error("Failed to parse SSE event:", e)
-						}
-					}
-				}
-			}
-		} catch (error) {
-			if ((error as Error).name === "AbortError") return
-
-			onError?.(error as Error)
-
-			// Retry with exponential backoff
-			if (retryCount.current < maxRetries) {
-				const backoff = Math.min(retryDelay * 2 ** retryCount.current, 30000)
-				retryCount.current++
-				setTimeout(connect, backoff)
-			}
-		}
-	}, [url, onEvent, onError, onConnect, retryDelay, maxRetries])
-
-	useEffect(() => {
-		connect()
-		return () => {
-			abortController.current?.abort()
-		}
-	}, [connect])
-
-	return {
-		reconnect: connect,
-	}
 }

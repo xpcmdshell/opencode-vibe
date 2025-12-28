@@ -1,0 +1,4 @@
+[test]
+# Exclude integration tests from default test run
+# Run them separately with: bun test **/*.integration.test.*
+exclude = ["**/*.integration.test.*"]

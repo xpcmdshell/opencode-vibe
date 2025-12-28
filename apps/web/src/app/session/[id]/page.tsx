@@ -116,9 +116,11 @@ function SessionLoading() {
 export default function SessionPage({ params, searchParams }: Props) {
 	return (
 		<div className="h-dvh flex flex-col bg-background">
-			<Suspense fallback={<SessionLoading />}>
-				<SessionContent paramsPromise={params} searchParamsPromise={searchParams} />
-			</Suspense>
+			<div className="flex-1 flex flex-col min-h-0">
+				<Suspense fallback={<SessionLoading />}>
+					<SessionContent paramsPromise={params} searchParamsPromise={searchParams} />
+				</Suspense>
+			</div>
 		</div>
 	)
 }

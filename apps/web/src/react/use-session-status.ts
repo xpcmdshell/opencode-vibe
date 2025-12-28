@@ -1,8 +1,9 @@
 /**
  * useSessionStatus - Hook to track session running/idle status
  *
- * Subscribes to session.status SSE events and returns the current running state.
- * Used to show a visual indicator when AI is generating a response.
+ * Reads status from Zustand store. Real-time updates are handled automatically
+ * by OpenCodeProvider which subscribes to session.status SSE events and
+ * updates the store via handleSSEEvent().
  *
  * @example
  * ```tsx
@@ -15,9 +16,8 @@
  * ```
  */
 
-import { useState, useEffect } from "react"
-import { useSSE } from "./use-sse"
-import type { GlobalEvent } from "@opencode-ai/sdk/client"
+import { useOpencodeStore } from "./store"
+import { useOpenCode } from "./provider"
 
 /**
  * Session status state
@@ -30,43 +30,25 @@ export interface SessionStatus {
 }
 
 /**
- * useSessionStatus - Subscribe to session status events
+ * useSessionStatus - Get session status from store (automatically updates via SSE)
  *
  * @param sessionId - The session ID to track
  * @returns SessionStatus with running and isLoading states
  */
 export function useSessionStatus(sessionId: string): SessionStatus {
-	const [running, setRunning] = useState(false)
-	const [isLoading, setIsLoading] = useState(true)
-	const { subscribe } = useSSE()
+	const { directory } = useOpenCode()
 
-	// Reset state when sessionId changes
-	useEffect(() => {
-		setRunning(false)
-		setIsLoading(true)
-	}, [sessionId])
+	// Get status from store (reactive - updates when store changes)
+	// Store is updated by OpenCodeProvider's SSE subscription to session.status events
+	const status = useOpencodeStore((state) => {
+		const sessionStatus = state.directories[directory]?.sessionStatus[sessionId]
+		return sessionStatus
+	})
 
-	// Subscribe to status events
-	useEffect(() => {
-		const unsubscribe = subscribe("session.status", (event: GlobalEvent) => {
-			const properties = (event.payload as any)?.properties
-
-			// Ignore malformed events
-			if (!properties) return
-
-			// Filter by sessionID
-			if (properties.sessionID !== sessionId) return
-
-			// Extract status.running
-			const status = properties.status
-			if (status && typeof status.running === "boolean") {
-				setRunning(status.running)
-				setIsLoading(false)
-			}
-		})
-
-		return unsubscribe
-	}, [sessionId, subscribe])
+	// If no status in store yet, it's loading
+	const isLoading = status === undefined
+	// Status is now a string: "running", "pending", "completed", "error"
+	const running = status === "running" || status === "pending"
 
 	return { running, isLoading }
 }

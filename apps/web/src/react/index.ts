@@ -5,10 +5,8 @@
 export {
 	useSSE,
 	SSEProvider,
-	useSSEDirect,
 	type SSEEventType,
 	type SSEEventCallback,
-	type SSEOptions,
 } from "./use-sse"
 export {
 	OpenCodeProvider,
@@ -20,6 +18,7 @@ export { useSession } from "./use-session"
 export { useCreateSession } from "./use-create-session"
 export { useProvider } from "./use-provider"
 export { useMessages } from "./use-messages"
+export { useMessagesWithParts } from "./use-messages-with-parts"
 export {
 	useSendMessage,
 	type UseSendMessageOptions,
@@ -40,3 +39,4 @@ export {
 	type UseFileSearchOptions,
 	type UseFileSearchResult,
 } from "./use-file-search"
+export { useMultiServerSSE } from "./use-multi-server-sse"

@@ -162,7 +162,7 @@ describe("useSendMessage", () => {
 	})
 
 	test("creates new client when directory changes", async () => {
-		const createClientMock = mock((dir?: string) => ({
+		const createClientMock = mock((dir?: string, sessionId?: string) => ({
 			session: {
 				prompt: mock(async () => ({ data: {}, error: undefined })),
 			},
@@ -179,12 +179,230 @@ describe("useSendMessage", () => {
 
 		const parts: Prompt = [{ type: "text", content: "Test", start: 0, end: 4 }]
 		await result.current.sendMessage(parts)
-		expect(createClientMock).toHaveBeenCalledWith("/dir1")
+		expect(createClientMock).toHaveBeenCalledWith("/dir1", "ses_123")
 
 		// Change directory
 		rerender({ directory: "/dir2" })
 
 		await result.current.sendMessage(parts)
-		expect(createClientMock).toHaveBeenCalledWith("/dir2")
+		expect(createClientMock).toHaveBeenCalledWith("/dir2", "ses_123")
+	})
+
+	test("handles SDK response with error property", async () => {
+		const mockPrompt = mock(async () => ({
+			data: null,
+			error: { message: "API error", code: 500 },
+		}))
+		const mockClient = {
+			session: { prompt: mockPrompt },
+		}
+		mock.module("@/core/client", () => ({
+			createClient: mock(() => mockClient),
+		}))
+
+		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
+
+		const parts: Prompt = [{ type: "text", content: "Test", start: 0, end: 4 }]
+		try {
+			await result.current.sendMessage(parts)
+		} catch (err) {
+			// Expected to throw
+			expect(err).toBeInstanceOf(Error)
+			expect((err as Error).message).toBe("API error")
+		}
+
+		await waitFor(() => {
+			expect(result.current.error).toBeDefined()
+			expect(result.current.error?.message).toBe("API error")
+		})
+	})
+
+	test("clears error on subsequent successful send", async () => {
+		let shouldFail = true
+		const mockPrompt = mock(async () => {
+			if (shouldFail) {
+				throw new Error("First attempt fails")
+			}
+			return { data: {}, error: undefined }
+		})
+		const mockClient = {
+			session: { prompt: mockPrompt },
+		}
+		mock.module("@/core/client", () => ({
+			createClient: mock(() => mockClient),
+		}))
+
+		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
+
+		const parts: Prompt = [{ type: "text", content: "Test", start: 0, end: 4 }]
+
+		// First attempt fails
+		try {
+			await result.current.sendMessage(parts)
+		} catch (err) {
+			// Expected
+		}
+
+		await waitFor(() => {
+			expect(result.current.error).toBeDefined()
+		})
+
+		// Second attempt succeeds
+		shouldFail = false
+		await result.current.sendMessage(parts)
+
+		await waitFor(() => {
+			expect(result.current.error).toBeUndefined()
+		})
+	})
+
+	test("queues messages when busy and processes them in order", async () => {
+		const callOrder: string[] = []
+		let resolveFirst: () => void
+		const firstPromise = new Promise<void>((resolve) => {
+			resolveFirst = resolve
+		})
+
+		const mockPrompt = mock(async (args: { body: { parts: Array<{ text?: string }> } }) => {
+			const text = args.body.parts[0]?.text || "unknown"
+			if (text === "first") {
+				await firstPromise
+			}
+			callOrder.push(text)
+			return { data: {}, error: undefined }
+		})
+		const mockClient = {
+			session: { prompt: mockPrompt },
+		}
+		mock.module("@/core/client", () => ({
+			createClient: mock(() => mockClient),
+		}))
+
+		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
+
+		const first: Prompt = [{ type: "text", content: "first", start: 0, end: 5 }]
+		const second: Prompt = [{ type: "text", content: "second", start: 0, end: 6 }]
+		const third: Prompt = [{ type: "text", content: "third", start: 0, end: 5 }]
+
+		// Send first message (will block)
+		const firstSend = result.current.sendMessage(first)
+
+		// Wait for first to start processing
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(true)
+		})
+
+		// Queue second and third while first is processing
+		const secondSend = result.current.sendMessage(second)
+		const thirdSend = result.current.sendMessage(third)
+
+		// Check queue length - includes first (still processing) + second + third
+		await waitFor(() => {
+			expect(result.current.queueLength).toBe(3)
+		})
+
+		// Release first message
+		resolveFirst!()
+
+		// Wait for all to complete
+		await Promise.all([firstSend, secondSend, thirdSend])
+
+		// Verify order
+		expect(callOrder).toEqual(["first", "second", "third"])
+
+		// Wait for state to update
+		await waitFor(() => {
+			expect(result.current.queueLength).toBe(0)
+			expect(result.current.isLoading).toBe(false)
+		})
+	})
+
+	test("exposes queue length for UI feedback", async () => {
+		let resolvePrompt: () => void
+		const blockingPromise = new Promise<void>((resolve) => {
+			resolvePrompt = resolve
+		})
+
+		const mockPrompt = mock(async () => {
+			await blockingPromise
+			return { data: {}, error: undefined }
+		})
+		const mockClient = {
+			session: { prompt: mockPrompt },
+		}
+		mock.module("@/core/client", () => ({
+			createClient: mock(() => mockClient),
+		}))
+
+		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
+
+		expect(result.current.queueLength).toBe(0)
+
+		const parts: Prompt = [{ type: "text", content: "Test", start: 0, end: 4 }]
+
+		// Start first message
+		const firstSend = result.current.sendMessage(parts)
+		await waitFor(() => expect(result.current.isLoading).toBe(true))
+
+		// Queue more - first is still in queue being processed, so total = 3
+		const secondSend = result.current.sendMessage(parts)
+		const thirdSend = result.current.sendMessage(parts)
+
+		await waitFor(() => {
+			expect(result.current.queueLength).toBe(3)
+		})
+
+		// Release and let queue drain
+		resolvePrompt!()
+		await Promise.all([firstSend, secondSend, thirdSend])
+
+		await waitFor(() => {
+			expect(result.current.queueLength).toBe(0)
+			expect(result.current.isLoading).toBe(false)
+		})
+	})
+
+	test("continues processing queue even if one message fails", async () => {
+		const callOrder: string[] = []
+		let shouldFail = false
+
+		const mockPrompt = mock(async (args: { body: { parts: Array<{ text?: string }> } }) => {
+			const text = args.body.parts[0]?.text || "unknown"
+			callOrder.push(text)
+			if (shouldFail && text === "second") {
+				throw new Error("Second message failed")
+			}
+			return { data: {}, error: undefined }
+		})
+		const mockClient = {
+			session: { prompt: mockPrompt },
+		}
+		mock.module("@/core/client", () => ({
+			createClient: mock(() => mockClient),
+		}))
+
+		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
+
+		const first: Prompt = [{ type: "text", content: "first", start: 0, end: 5 }]
+		const second: Prompt = [{ type: "text", content: "second", start: 0, end: 6 }]
+		const third: Prompt = [{ type: "text", content: "third", start: 0, end: 5 }]
+
+		// Send first, then queue second (will fail) and third
+		await result.current.sendMessage(first)
+
+		shouldFail = true
+		const secondSend = result.current.sendMessage(second)
+		const thirdSend = result.current.sendMessage(third)
+
+		// Second will fail but third should still process
+		try {
+			await secondSend
+		} catch {
+			// Expected
+		}
+		await thirdSend
+
+		// All three should have been attempted
+		expect(callOrder).toEqual(["first", "second", "third"])
 	})
 })

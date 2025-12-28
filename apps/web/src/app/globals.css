@@ -90,6 +90,12 @@
   --ctp-sapphire: #209fb5;
   --ctp-blue: #1e66f5;
   --ctp-lavender: #7287fd;
+
+  /* Safe area insets for mobile (iPhone notch/home indicator) */
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
+  --safe-area-left: env(safe-area-inset-left);
+  --safe-area-right: env(safe-area-inset-right);
 }
 
 .dark {
@@ -228,6 +234,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  padding-top: var(--safe-area-top);
+  padding-bottom: var(--safe-area-bottom);
+  padding-left: var(--safe-area-left);
+  padding-right: var(--safe-area-right);
 }
 
 /* Custom scrollbar - Catppuccin styled */

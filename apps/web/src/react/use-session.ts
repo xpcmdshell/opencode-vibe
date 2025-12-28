@@ -1,9 +1,9 @@
 /**
  * useSession - Hook for accessing session data with real-time updates
  *
- * Combines Zustand store with SSE subscriptions to provide reactive
- * session data. Subscribes to session.updated events and automatically
- * updates the store when events arrive.
+ * Reads session data from Zustand store. Real-time updates are handled
+ * automatically by OpenCodeProvider which subscribes to SSE events and
+ * updates the store via handleSSEEvent().
  *
  * @example
  * ```tsx
@@ -17,38 +17,27 @@
  * ```
  */
 
-import { useEffect } from "react"
-import { useSSE } from "./use-sse"
 import { useOpencodeStore, type Session } from "./store"
+import { useOpenCode } from "./provider"
+import { Binary } from "@/lib/binary"
 
 /**
- * useSession - Get session from store and subscribe to updates
+ * useSession - Get session from store (automatically updates via SSE)
  *
  * @param sessionId - ID of the session to retrieve
  * @returns Session object or undefined if not found
  */
 export function useSession(sessionId: string): Session | undefined {
-	const { subscribe } = useSSE()
+	const { directory } = useOpenCode()
 
 	// Get session from store (reactive - updates when store changes)
-	const session = useOpencodeStore((state) => state.getSession(sessionId))
-
-	// Subscribe to session.updated events
-	useEffect(() => {
-		const unsubscribe = subscribe("session.updated", (event) => {
-			// Safely extract properties from event payload
-			const props = event.payload?.properties as { info?: Session } | undefined
-			const sessionData = props?.info
-			if (!sessionData) return
-
-			// Only update if this is our session
-			if (sessionData.id === sessionId) {
-				useOpencodeStore.getState().addSession(sessionData)
-			}
-		})
-
-		return unsubscribe
-	}, [sessionId, subscribe])
+	// Store is updated by OpenCodeProvider's SSE subscription
+	const session = useOpencodeStore((state) => {
+		const dir = state.directories[directory]
+		if (!dir) return undefined
+		const result = Binary.search(dir.sessions, sessionId, (s: Session) => s.id)
+		return result.found ? dir.sessions[result.index] : undefined
+	})
 
 	return session
 }

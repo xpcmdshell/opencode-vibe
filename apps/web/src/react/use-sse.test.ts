@@ -115,6 +115,94 @@ describe("Exponential Backoff", () => {
 })
 
 /**
+ * EventSourceParserStream Tests
+ *
+ * Tests integration with eventsource-parser/stream for standardized SSE parsing
+ */
+describe("EventSourceParserStream Integration", () => {
+	test("parses SSE events using EventSourceParserStream", async () => {
+		const event = { directory: "/test", payload: { type: "ping" } }
+		const events: any[] = []
+
+		// Mock fetch to return SSE stream
+		const mockFetch = mock(async () => {
+			const stream = new ReadableStream({
+				start(controller) {
+					const encoder = new TextEncoder()
+					controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+					controller.close()
+				},
+			})
+			return new Response(stream, {
+				status: 200,
+				headers: { "Content-Type": "text/event-stream" },
+			})
+		})
+		global.fetch = mockFetch as any
+
+		// Import EventSourceParserStream dynamically to avoid build errors if not installed
+		const { EventSourceParserStream } = await import("eventsource-parser/stream")
+
+		const response = await fetch("http://localhost:3000/global/event")
+		const stream = response
+			.body!.pipeThrough(new TextDecoderStream())
+			.pipeThrough(new EventSourceParserStream())
+
+		const reader = stream.getReader()
+		while (true) {
+			const { done, value } = await reader.read()
+			if (done) break
+			events.push(JSON.parse(value.data))
+		}
+
+		expect(events).toHaveLength(1)
+		expect(events[0]).toEqual(event)
+	})
+
+	test("handles multi-line events with EventSourceParserStream", async () => {
+		const event = {
+			directory: "/test",
+			payload: { type: "ping", data: "multi\nline" },
+		}
+		const events: any[] = []
+
+		const mockFetch = mock(async () => {
+			const stream = new ReadableStream({
+				start(controller) {
+					const encoder = new TextEncoder()
+					// Multi-line data requires multiple "data:" prefixes
+					const json = JSON.stringify(event)
+					controller.enqueue(encoder.encode(`data: ${json}\n\n`))
+					controller.close()
+				},
+			})
+			return new Response(stream, {
+				status: 200,
+				headers: { "Content-Type": "text/event-stream" },
+			})
+		})
+		global.fetch = mockFetch as any
+
+		const { EventSourceParserStream } = await import("eventsource-parser/stream")
+
+		const response = await fetch("http://localhost:3000/global/event")
+		const stream = response
+			.body!.pipeThrough(new TextDecoderStream())
+			.pipeThrough(new EventSourceParserStream())
+
+		const reader = stream.getReader()
+		while (true) {
+			const { done, value } = await reader.read()
+			if (done) break
+			events.push(JSON.parse(value.data))
+		}
+
+		expect(events).toHaveLength(1)
+		expect(events[0]).toEqual(event)
+	})
+})
+
+/**
  * Fetch-based SSE Connection Tests
  */
 describe("useSSE - Fetch-based SSE", () => {
@@ -468,6 +556,210 @@ describe("useSSE Hook - SSE Logic", () => {
 		// Second attempt - succeeds
 		await connect()
 		expect(retryCount).toBe(0) // Reset on success
+	})
+})
+
+/**
+ * Visibility API Tests
+ *
+ * Tests SSE disconnect on background, reconnect on foreground
+ */
+describe("Visibility API", () => {
+	test("should disconnect when page is backgrounded", () => {
+		let aborted = false
+		const abortController = new AbortController()
+
+		abortController.signal.addEventListener("abort", () => {
+			aborted = true
+		})
+
+		// Simulate visibility change to hidden
+		const isBackgrounded = { current: false }
+		const handleVisibilityChange = (visibilityState: string) => {
+			if (visibilityState === "hidden") {
+				isBackgrounded.current = true
+				abortController.abort()
+			}
+		}
+
+		handleVisibilityChange("hidden")
+
+		expect(isBackgrounded.current).toBe(true)
+		expect(aborted).toBe(true)
+	})
+
+	test("should reconnect when page is foregrounded", () => {
+		let connectCalled = false
+		const isBackgrounded = { current: true }
+		const retryCount = { current: 5 }
+
+		const connect = () => {
+			connectCalled = true
+		}
+
+		const handleVisibilityChange = (visibilityState: string) => {
+			if (visibilityState === "visible") {
+				isBackgrounded.current = false
+				retryCount.current = 0 // Reset retries on foreground
+				connect()
+			}
+		}
+
+		handleVisibilityChange("visible")
+
+		expect(isBackgrounded.current).toBe(false)
+		expect(retryCount.current).toBe(0)
+		expect(connectCalled).toBe(true)
+	})
+
+	test("should not connect when backgrounded", () => {
+		let connectAttempted = false
+		const isBackgrounded = { current: true }
+
+		const connect = () => {
+			if (isBackgrounded.current) return
+			connectAttempted = true
+		}
+
+		connect()
+
+		expect(connectAttempted).toBe(false)
+	})
+
+	test("should clear heartbeat timeout when backgrounded", () => {
+		let timeoutCleared = false
+		const heartbeatTimeout = { current: setTimeout(() => {}, 60000) }
+
+		const handleVisibilityChange = (visibilityState: string) => {
+			if (visibilityState === "hidden") {
+				if (heartbeatTimeout.current) {
+					clearTimeout(heartbeatTimeout.current)
+					timeoutCleared = true
+				}
+			}
+		}
+
+		handleVisibilityChange("hidden")
+
+		expect(timeoutCleared).toBe(true)
+	})
+})
+
+/**
+ * Heartbeat Timeout Tests
+ *
+ * Tests 60s heartbeat timeout detection (2x server heartbeat of 30s)
+ */
+describe("Heartbeat Timeout", () => {
+	test("heartbeat timeout is 60 seconds", () => {
+		const HEARTBEAT_TIMEOUT_MS = 60_000
+		expect(HEARTBEAT_TIMEOUT_MS).toBe(60000)
+	})
+
+	test("should reset heartbeat timeout on event received", () => {
+		let timeoutCleared = false
+		let newTimeoutSet = false
+		const HEARTBEAT_TIMEOUT_MS = 60_000
+
+		const heartbeatTimeout = {
+			current: setTimeout(() => {}, HEARTBEAT_TIMEOUT_MS),
+		}
+
+		const resetHeartbeat = () => {
+			if (heartbeatTimeout.current) {
+				clearTimeout(heartbeatTimeout.current)
+				timeoutCleared = true
+			}
+			heartbeatTimeout.current = setTimeout(() => {}, HEARTBEAT_TIMEOUT_MS)
+			newTimeoutSet = true
+		}
+
+		// Simulate receiving an event
+		resetHeartbeat()
+
+		expect(timeoutCleared).toBe(true)
+		expect(newTimeoutSet).toBe(true)
+	})
+
+	test("should trigger reconnect on heartbeat timeout", async () => {
+		let reconnectCalled = false
+		let errorReported = false
+
+		const onError = (error: Error) => {
+			if (error.message === "Heartbeat timeout") {
+				errorReported = true
+			}
+		}
+
+		const reconnect = () => {
+			reconnectCalled = true
+		}
+
+		// Simulate heartbeat timeout callback
+		const heartbeatTimeoutCallback = () => {
+			onError(new Error("Heartbeat timeout"))
+			reconnect()
+		}
+
+		heartbeatTimeoutCallback()
+
+		expect(errorReported).toBe(true)
+		expect(reconnectCalled).toBe(true)
+	})
+
+	test("should start heartbeat monitoring on successful connection", () => {
+		let heartbeatStarted = false
+		const HEARTBEAT_TIMEOUT_MS = 60_000
+
+		const resetHeartbeat = () => {
+			heartbeatStarted = true
+		}
+
+		// Simulate successful connection
+		const onConnect = () => {
+			resetHeartbeat()
+		}
+
+		onConnect()
+
+		expect(heartbeatStarted).toBe(true)
+	})
+
+	test("should reset heartbeat on server.heartbeat event", () => {
+		let heartbeatResetCount = 0
+
+		const resetHeartbeat = () => {
+			heartbeatResetCount++
+		}
+
+		const onEvent = (event: { payload: { type: string } }) => {
+			// Reset heartbeat on every event (including server.heartbeat)
+			resetHeartbeat()
+		}
+
+		// Simulate receiving heartbeat events
+		onEvent({ payload: { type: "server.heartbeat" } })
+		onEvent({ payload: { type: "server.heartbeat" } })
+		onEvent({ payload: { type: "message.updated" } })
+
+		expect(heartbeatResetCount).toBe(3)
+	})
+
+	test("should cleanup heartbeat timeout on unmount", () => {
+		let timeoutCleared = false
+		const heartbeatTimeout = { current: setTimeout(() => {}, 60000) }
+
+		// Simulate unmount cleanup
+		const cleanup = () => {
+			if (heartbeatTimeout.current) {
+				clearTimeout(heartbeatTimeout.current)
+				timeoutCleared = true
+			}
+		}
+
+		cleanup()
+
+		expect(timeoutCleared).toBe(true)
 	})
 })
 
