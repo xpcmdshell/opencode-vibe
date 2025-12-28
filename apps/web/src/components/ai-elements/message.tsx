@@ -8,7 +8,7 @@ import type { FileUIPart, UIMessage } from "ai"
 import { ChevronLeftIcon, ChevronRightIcon, PaperclipIcon, XIcon } from "lucide-react"
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react"
 import React, { createContext, memo, useContext, useEffect, useState } from "react"
-import { Streamdown } from "streamdown"
+import { Streamdown, StreamdownContext } from "streamdown"
 import type { Root, Element } from "hast"
 import { visit } from "unist-util-visit"
 
@@ -845,14 +845,23 @@ const createComponentsWithFallback = (
 
 export const MessageResponse = memo(
 	({ className, components, ...props }: MessageResponseProps) => (
-		<Streamdown
-			className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
-			components={createComponentsWithFallback(
-				components as Record<string, React.ComponentType<unknown>>,
-			)}
-			rehypePlugins={[rehypeSanitizeUnknownTags]}
-			{...props}
-		/>
+		<StreamdownContext.Provider
+			value={{
+				shikiTheme: ["catppuccin-latte", "catppuccin-mocha"] as const,
+				controls: true,
+				isAnimating: false,
+				mode: "streaming",
+			}}
+		>
+			<Streamdown
+				className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+				components={createComponentsWithFallback(
+					components as Record<string, React.ComponentType<unknown>>,
+				)}
+				rehypePlugins={[rehypeSanitizeUnknownTags]}
+				{...props}
+			/>
+		</StreamdownContext.Provider>
 	),
 	(prevProps, nextProps) => prevProps.children === nextProps.children,
 )

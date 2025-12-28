@@ -100,29 +100,28 @@ export const CodeBlock = ({
 		<CodeBlockContext.Provider value={{ code }}>
 			<div
 				className={cn(
-					"group relative w-full overflow-hidden rounded-md border border-surface1 bg-crust text-foreground",
+					"group relative w-full overflow-hidden rounded-md border border-surface1 text-foreground",
 					className,
 				)}
 				{...props}
 			>
 				<div className="relative">
 					{isLoading ? (
-						/* Styled placeholder while Shiki loads - no flash */
-						<pre
-							className="m-0 overflow-auto rounded-none bg-popover p-4 text-sm"
-							style={{ background: "var(--popover)" }}
-						>
+						/* Styled placeholder while Shiki loads - uses catppuccin crust (darker) */
+						<pre className="m-0 overflow-auto rounded-none bg-[#dce0e8] p-4 text-sm dark:bg-[#11111b]">
 							<code className="font-mono text-sm text-foreground">{code}</code>
 						</pre>
 					) : (
 						<>
+							{/* Light mode - Shiki catppuccin-latte syntax colors, crust background */}
 							<div
-								className="overflow-auto dark:hidden [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:p-4 [&>pre]:text-sm [&_code]:font-mono [&_code]:text-sm [&>pre]:!bg-[var(--popover)]"
+								className="overflow-auto dark:hidden [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:p-4 [&>pre]:text-sm [&>pre]:!bg-[#dce0e8] [&_code]:font-mono [&_code]:text-sm"
 								// biome-ignore lint/security/noDangerouslySetInnerHtml: "this is needed."
 								dangerouslySetInnerHTML={{ __html: html }}
 							/>
+							{/* Dark mode - Shiki catppuccin-mocha syntax colors, crust background */}
 							<div
-								className="hidden overflow-auto dark:block [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:p-4 [&>pre]:text-sm [&_code]:font-mono [&_code]:text-sm [&>pre]:!bg-[var(--popover)]"
+								className="hidden overflow-auto dark:block [&>pre]:m-0 [&>pre]:rounded-none [&>pre]:p-4 [&>pre]:text-sm [&>pre]:!bg-[#11111b] [&_code]:font-mono [&_code]:text-sm"
 								// biome-ignore lint/security/noDangerouslySetInnerHtml: "this is needed."
 								dangerouslySetInnerHTML={{ __html: darkHtml }}
 							/>

@@ -324,30 +324,30 @@ td:last-child {
 
 /* Markdown Code Blocks - Catppuccin themed */
 
-/* Override Shiki's CSS variables with Catppuccin colors */
-:root {
-  --shiki-light-bg: #dce0e8; /* Latte Crust */
-  --shiki-dark-bg: #11111b; /* Mocha Crust */
-}
+/* 
+ * Let Shiki's catppuccin themes handle syntax highlighting colors.
+ * We only style the container, not the pre/code elements.
+ * Shiki catppuccin-latte uses #eff1f5 (Base) background
+ * Shiki catppuccin-mocha uses #1e1e2e (Base) background
+ */
 
-/* Inline code */
+/* Inline code - NOT inside pre blocks */
 code:not(pre code) {
-  background: var(--popover) !important;
+  background: var(--surface0);
   color: var(--ctp-mauve);
   padding: 0.125rem 0.375rem;
   border-radius: calc(var(--radius) * 0.5);
   font-family: var(--font-mono), monospace;
   font-size: 0.875em;
-  border: 1px solid var(--surface0);
+  border: 1px solid var(--surface1);
 }
 
-/* Code blocks - force Catppuccin crust background */
+/* Code blocks - let Shiki themes control background */
 pre {
-  background: var(--popover) !important;
-  color: var(--foreground);
   font-family: var(--font-mono), monospace;
   font-size: 0.875rem;
   line-height: 1.5;
+  /* DO NOT override background - Shiki catppuccin themes set this */
 }
 
 /* Code inside pre (override inline code styles) */
