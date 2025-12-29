@@ -1176,6 +1176,191 @@ describe("OpencodeStore", () => {
 		})
 	})
 
+	// ═══════════════════════════════════════════════════════════════
+	// MEMOIZED SELECTORS (tested via direct selector logic)
+	// ═══════════════════════════════════════════════════════════════
+	describe("usePartSummary selector logic", () => {
+		// Helper function that extracts the selector logic for testing
+		// This mirrors what usePartSummary does but can be tested without React hooks
+		const getPartSummary = (directory: string, messageId: string, partId: string) => {
+			const state = useOpencodeStore.getState()
+			const parts = state.directories[directory]?.parts[messageId]
+			if (!parts) return undefined
+
+			const part = parts.find((p) => p.id === partId)
+			if (!part || part.type !== "tool") {
+				return undefined
+			}
+
+			const partState = part.state as
+				| { status: string; metadata?: { summary?: string } }
+				| undefined
+			if (!partState || partState.status === "pending") {
+				return undefined
+			}
+
+			return partState.metadata?.summary
+		}
+
+		test("returns undefined for non-existent part", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const summary = getPartSummary(TEST_DIRECTORY, "msg-1", "part-1")
+			expect(summary).toBeUndefined()
+		})
+
+		test("returns undefined for non-tool parts", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const textPart: Part = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "text",
+				content: "Hello",
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: textPart },
+			})
+
+			const summary = getPartSummary(TEST_DIRECTORY, "msg-1", "part-1")
+			expect(summary).toBeUndefined()
+		})
+
+		test("returns undefined for pending tool parts", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const toolPart: any = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "tool",
+				content: "",
+				state: {
+					status: "pending",
+					metadata: {},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: toolPart },
+			})
+
+			const summary = getPartSummary(TEST_DIRECTORY, "msg-1", "part-1")
+			expect(summary).toBeUndefined()
+		})
+
+		test("returns summary for completed tool parts", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const toolPart: any = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "tool",
+				content: "",
+				state: {
+					status: "completed",
+					metadata: {
+						summary: "Task completed successfully",
+					},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: toolPart },
+			})
+
+			const summary = getPartSummary(TEST_DIRECTORY, "msg-1", "part-1")
+			expect(summary).toBe("Task completed successfully")
+		})
+
+		test("returns same value when summary unchanged (primitive value equality)", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const toolPart: any = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "tool",
+				content: "",
+				state: {
+					status: "completed",
+					metadata: {
+						summary: "Original summary",
+					},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: toolPart },
+			})
+
+			// Get summary twice - should return same value
+			// (Zustand's Object.is will see these as equal because strings are primitives)
+			const summary1 = getPartSummary(TEST_DIRECTORY, "msg-1", "part-1")
+			const summary2 = getPartSummary(TEST_DIRECTORY, "msg-1", "part-1")
+
+			expect(summary1).toBe("Original summary")
+			expect(summary2).toBe("Original summary")
+			// Primitive values - same value means same reference
+			expect(summary1).toBe(summary2)
+		})
+
+		test("returns different value when summary changes", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const toolPart: any = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "tool",
+				content: "",
+				state: {
+					status: "completed",
+					metadata: {
+						summary: "Original summary",
+					},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: toolPart },
+			})
+
+			const summary1 = getPartSummary(TEST_DIRECTORY, "msg-1", "part-1")
+
+			// Update summary
+			const updatedPart: any = {
+				...toolPart,
+				state: {
+					status: "completed",
+					metadata: {
+						summary: "Updated summary",
+					},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part: updatedPart },
+			})
+
+			const summary2 = getPartSummary(TEST_DIRECTORY, "msg-1", "part-1")
+
+			expect(summary1).toBe("Original summary")
+			expect(summary2).toBe("Updated summary")
+			expect(summary1).not.toBe(summary2)
+		})
+	})
+
 	describe("Provider/Project Events", () => {
 		test("handles provider.updated event (logs only, no state change)", () => {
 			const store = useOpencodeStore.getState()

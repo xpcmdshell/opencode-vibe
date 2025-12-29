@@ -764,6 +764,183 @@ describe("Heartbeat Timeout", () => {
 })
 
 /**
+ * Event Batching Tests
+ *
+ * Tests that rapid SSE events are batched to reduce render thrashing
+ */
+describe("Event Batching", () => {
+	test("batches multiple rapid events within 16ms", async () => {
+		const dispatchedEvents: any[] = []
+		const batchedDispatches: number[] = []
+		let dispatchCount = 0
+
+		// Mock dispatch function that records timing
+		const mockDispatch = (event: any) => {
+			dispatchedEvents.push(event)
+			dispatchCount++
+		}
+
+		// Mock queueEvent function with batching logic
+		const updateQueue: any[] = []
+		let debounceTimer: NodeJS.Timeout | null = null
+
+		const queueEvent = (event: any, dispatch: (e: any) => void) => {
+			// Immediate dispatch for heartbeat
+			if (event.payload?.type === "server.heartbeat") {
+				dispatch(event)
+				return
+			}
+
+			updateQueue.push(event)
+
+			if (!debounceTimer) {
+				debounceTimer = setTimeout(() => {
+					batchedDispatches.push(updateQueue.length)
+					for (const e of updateQueue) {
+						dispatch(e)
+					}
+					updateQueue.length = 0
+					debounceTimer = null
+				}, 16)
+			}
+		}
+
+		// Simulate 5 rapid events within 16ms
+		const event1 = { directory: "/test", payload: { type: "message.updated" } }
+		const event2 = { directory: "/test", payload: { type: "message.updated" } }
+		const event3 = { directory: "/test", payload: { type: "message.updated" } }
+		const event4 = { directory: "/test", payload: { type: "message.updated" } }
+		const event5 = { directory: "/test", payload: { type: "message.updated" } }
+
+		queueEvent(event1, mockDispatch)
+		queueEvent(event2, mockDispatch)
+		queueEvent(event3, mockDispatch)
+		queueEvent(event4, mockDispatch)
+		queueEvent(event5, mockDispatch)
+
+		// Events should be queued, not dispatched yet
+		expect(dispatchedEvents).toHaveLength(0)
+		expect(updateQueue).toHaveLength(5)
+
+		// Wait for debounce to flush
+		await new Promise((resolve) => setTimeout(resolve, 20))
+
+		// All 5 events should be dispatched in one batch
+		expect(dispatchedEvents).toHaveLength(5)
+		expect(batchedDispatches).toEqual([5])
+	})
+
+	test("heartbeat events bypass batching", async () => {
+		const dispatchedEvents: any[] = []
+		const updateQueue: any[] = []
+		let debounceTimer: NodeJS.Timeout | null = null
+
+		const mockDispatch = (event: any) => {
+			dispatchedEvents.push(event)
+		}
+
+		const queueEvent = (event: any, dispatch: (e: any) => void) => {
+			// Immediate dispatch for heartbeat
+			if (event.payload?.type === "server.heartbeat") {
+				dispatch(event)
+				return
+			}
+
+			updateQueue.push(event)
+
+			if (!debounceTimer) {
+				debounceTimer = setTimeout(() => {
+					for (const e of updateQueue) {
+						dispatch(e)
+					}
+					updateQueue.length = 0
+					debounceTimer = null
+				}, 16)
+			}
+		}
+
+		const heartbeat = {
+			directory: "/test",
+			payload: { type: "server.heartbeat" },
+		}
+		const regularEvent = {
+			directory: "/test",
+			payload: { type: "message.updated" },
+		}
+
+		queueEvent(regularEvent, mockDispatch)
+		queueEvent(heartbeat, mockDispatch)
+
+		// Heartbeat should be dispatched immediately
+		expect(dispatchedEvents).toHaveLength(1)
+		expect(dispatchedEvents[0].payload.type).toBe("server.heartbeat")
+
+		// Regular event still queued
+		expect(updateQueue).toHaveLength(1)
+
+		// Wait for debounce
+		await new Promise((resolve) => setTimeout(resolve, 20))
+
+		// Now both dispatched
+		expect(dispatchedEvents).toHaveLength(2)
+	})
+
+	test("multiple batches process independently", async () => {
+		const dispatchedEvents: any[] = []
+		const batchSizes: number[] = []
+		const updateQueue: any[] = []
+		let debounceTimer: NodeJS.Timeout | null = null
+
+		const mockDispatch = (event: any) => {
+			dispatchedEvents.push(event)
+		}
+
+		const queueEvent = (event: any, dispatch: (e: any) => void) => {
+			if (event.payload?.type === "server.heartbeat") {
+				dispatch(event)
+				return
+			}
+
+			updateQueue.push(event)
+
+			if (!debounceTimer) {
+				debounceTimer = setTimeout(() => {
+					batchSizes.push(updateQueue.length)
+					for (const e of updateQueue) {
+						dispatch(e)
+					}
+					updateQueue.length = 0
+					debounceTimer = null
+				}, 16)
+			}
+		}
+
+		const event1 = { directory: "/test", payload: { type: "message.updated" } }
+		const event2 = { directory: "/test", payload: { type: "message.updated" } }
+
+		// First batch
+		queueEvent(event1, mockDispatch)
+		queueEvent(event2, mockDispatch)
+
+		// Wait for first batch to flush
+		await new Promise((resolve) => setTimeout(resolve, 20))
+
+		expect(dispatchedEvents).toHaveLength(2)
+		expect(batchSizes).toEqual([2])
+
+		// Second batch
+		queueEvent(event1, mockDispatch)
+		queueEvent(event2, mockDispatch)
+		queueEvent(event2, mockDispatch)
+
+		await new Promise((resolve) => setTimeout(resolve, 20))
+
+		expect(dispatchedEvents).toHaveLength(5)
+		expect(batchSizes).toEqual([2, 3])
+	})
+})
+
+/**
  * SSE Provider Tests - Subscribe Pattern
  *
  * Tests the subscribe/unsubscribe pattern used by components

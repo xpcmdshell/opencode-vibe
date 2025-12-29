@@ -128,6 +128,10 @@ export function SSEProvider({
 	const heartbeatTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const isBackgrounded = useRef(false)
 
+	// Event batching refs - buffer rapid events to reduce render thrashing
+	const updateQueueRef = useRef<GlobalEvent[]>([])
+	const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+
 	// Store config in ref to avoid recreating connect callback
 	const configRef = useRef({ url, retryDelay, maxRetries })
 	configRef.current = { url, retryDelay, maxRetries }
@@ -176,6 +180,40 @@ export function SSEProvider({
 			)
 		} else {
 			console.log(`[SSE] No subscribers for ${eventType}`)
+		}
+	})
+
+	/**
+	 * Queue event for batched dispatch
+	 * Batches rapid SSE events (50-100ms intervals) to reduce render thrashing
+	 * Heartbeat events bypass batching for immediate processing
+	 * Stored in ref to make connect callback stable
+	 */
+	const queueEventRef = useRef((event: GlobalEvent) => {
+		// Don't batch heartbeat events - they need immediate processing
+		// Note: server.heartbeat may not be in SDK types but is used in practice
+		if ((event.payload as any)?.type === "server.heartbeat") {
+			dispatchEventRef.current(event)
+			return
+		}
+
+		updateQueueRef.current.push(event)
+
+		if (!debounceTimerRef.current) {
+			debounceTimerRef.current = setTimeout(() => {
+				console.log(`[SSE] Flushing batch of ${updateQueueRef.current.length} events`)
+				const batchStartTime = performance.now()
+
+				for (const e of updateQueueRef.current) {
+					dispatchEventRef.current(e)
+				}
+
+				const batchDuration = performance.now() - batchStartTime
+				console.log(`[SSE] Batch processed in ${batchDuration.toFixed(2)}ms`)
+
+				updateQueueRef.current = []
+				debounceTimerRef.current = null
+			}, 16) // One frame (60fps)
 		}
 	})
 
@@ -270,9 +308,9 @@ export function SSEProvider({
 				// Reset heartbeat on every event (including server.heartbeat)
 				resetHeartbeatRef.current(connect)
 
-				// DIAGNOSTIC: Measure dispatch time
+				// DIAGNOSTIC: Measure dispatch time (includes batching delay)
 				console.time(`sse-dispatch-${eventType}-${sseArrivalTime}`)
-				dispatchEventRef.current(data)
+				queueEventRef.current(data)
 				console.timeEnd(`sse-dispatch-${eventType}-${sseArrivalTime}`)
 			}
 
@@ -352,6 +390,10 @@ export function SSEProvider({
 				if (heartbeatTimeout.current) {
 					clearTimeout(heartbeatTimeout.current)
 				}
+				if (debounceTimerRef.current) {
+					clearTimeout(debounceTimerRef.current)
+					debounceTimerRef.current = null
+				}
 			}
 		}
 
@@ -369,6 +411,9 @@ export function SSEProvider({
 			abortController.current?.abort()
 			if (heartbeatTimeout.current) {
 				clearTimeout(heartbeatTimeout.current)
+			}
+			if (debounceTimerRef.current) {
+				clearTimeout(debounceTimerRef.current)
 			}
 		}
 	}, [connect, mounted])

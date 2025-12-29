@@ -44,21 +44,12 @@ export function getCurrentlyDoing(part: ToolPart): CurrentActivity | null {
 	// Get metadata which contains summary array
 	const metadata = part.state.metadata as TaskToolMetadata | undefined
 
-	// DIAGNOSTIC: Log metadata structure
-	console.log("[getCurrentlyDoing] Part ID:", part.id, "Metadata:", {
-		hasSummary: !!metadata?.summary,
-		summaryLength: metadata?.summary?.length || 0,
-		summary: metadata?.summary,
-		fullMetadata: metadata,
-	})
-
 	if (!metadata?.summary || metadata.summary.length === 0) return null
 
 	// Find the last running tool
 	const running = metadata.summary.filter((item) => item.state.status === "running").at(-1)
 
 	if (running) {
-		console.log("[getCurrentlyDoing] Found RUNNING:", running)
 		return {
 			type: "running",
 			tool: running.tool,
@@ -70,7 +61,6 @@ export function getCurrentlyDoing(part: ToolPart): CurrentActivity | null {
 	const lastCompleted = metadata.summary.filter((item) => item.state.status === "completed").at(-1)
 
 	if (lastCompleted) {
-		console.log("[getCurrentlyDoing] Found COMPLETED:", lastCompleted)
 		return {
 			type: "completed",
 			tool: lastCompleted.tool,
@@ -78,7 +68,6 @@ export function getCurrentlyDoing(part: ToolPart): CurrentActivity | null {
 		}
 	}
 
-	console.log("[getCurrentlyDoing] No running or completed tools found")
 	return null
 }
 
@@ -173,19 +162,7 @@ export type SubagentCurrentActivityProps = {
  * Data source: part.state.metadata.summary (updates via SSE)
  */
 const SubagentCurrentActivityInternal = ({ part, className }: SubagentCurrentActivityProps) => {
-	// DIAGNOSTIC: Log every render
-	console.log("[SubagentCurrentActivity] RENDER:", {
-		partId: part.id,
-		partType: part.type,
-		tool: part.type === "tool" ? part.tool : "N/A",
-		status: part.state.status,
-		timestamp: new Date().toISOString(),
-	})
-
 	const activity = getCurrentlyDoing(part)
-
-	// DIAGNOSTIC: Log computed activity
-	console.log("[SubagentCurrentActivity] Computed activity:", activity)
 
 	if (!activity) {
 		// Still initializing - task is running but no tools executed yet
@@ -217,12 +194,24 @@ const SubagentCurrentActivityInternal = ({ part, className }: SubagentCurrentAct
 }
 
 /**
- * Memoized version with diagnostic logging to track prop changes
+ * Memoized version with content-aware comparison.
+ *
+ * Problem: Immer creates new object references on every store update,
+ * breaking React.memo shallow comparison even when content is identical.
+ *
+ * Solution: Deep compare summary array content (id, status, tool) instead
+ * of reference equality.
  */
 export const SubagentCurrentActivity = React.memo(
 	SubagentCurrentActivityInternal,
 	(prevProps, nextProps) => {
-		// DIAGNOSTIC: Log prop comparison
+		// Fast path: Compare IDs first
+		if (prevProps.part.id !== nextProps.part.id) return false
+
+		// Fast path: Compare status
+		if (prevProps.part.state.status !== nextProps.part.state.status) return false
+
+		// Extract metadata (safe for non-pending states)
 		const prevMetadata =
 			prevProps.part.state.status !== "pending"
 				? (prevProps.part.state.metadata as TaskToolMetadata | undefined)
@@ -232,21 +221,25 @@ export const SubagentCurrentActivity = React.memo(
 				? (nextProps.part.state.metadata as TaskToolMetadata | undefined)
 				: undefined
 
-		const propsEqual =
-			prevProps.part.id === nextProps.part.id &&
-			prevProps.part.state.status === nextProps.part.state.status &&
-			prevMetadata?.summary === nextMetadata?.summary
+		// Deep compare summary content (Immer-safe)
+		const prevSummary = prevMetadata?.summary
+		const nextSummary = nextMetadata?.summary
 
-		console.log("[SubagentCurrentActivity] React.memo comparison:", {
-			partId: nextProps.part.id,
-			propsEqual,
-			statusChanged: prevProps.part.state.status !== nextProps.part.state.status,
-			summaryRefChanged: prevMetadata?.summary !== nextMetadata?.summary,
-			prevSummaryLength: prevMetadata?.summary?.length,
-			nextSummaryLength: nextMetadata?.summary?.length,
-			decision: propsEqual ? "SKIP_RENDER" : "ALLOW_RENDER",
-		})
+		// Both undefined/null - equal
+		if (!prevSummary && !nextSummary) return true
 
-		return propsEqual
+		// One undefined, one defined - not equal
+		if (!prevSummary || !nextSummary) return false
+
+		// Different lengths - not equal
+		if (prevSummary.length !== nextSummary.length) return false
+
+		// Compare each item's content (id, status, tool)
+		return prevSummary.every(
+			(item, i) =>
+				item.id === nextSummary[i].id &&
+				item.state.status === nextSummary[i].state.status &&
+				item.tool === nextSummary[i].tool,
+		)
 	},
 )

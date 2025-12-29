@@ -274,4 +274,71 @@ describe("useMessagesWithParts", () => {
 
 		expect((result.current[0].parts[0] as any).text).toBe("Hello World")
 	})
+
+	it("does not re-render when store updates with same content but new reference", () => {
+		const store = useOpencodeStore.getState()
+
+		// Add initial messages and parts
+		act(() => {
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: {
+					info: {
+						id: "msg-1",
+						sessionID: TEST_SESSION_ID,
+						role: "user",
+					},
+				},
+			})
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: {
+					part: {
+						id: "part-1",
+						messageID: "msg-1",
+						type: "text",
+						content: "Hello",
+					},
+				},
+			})
+		})
+
+		let renderCount = 0
+		const { result } = renderHook(() => {
+			renderCount++
+			return useMessagesWithParts(TEST_SESSION_ID)
+		})
+
+		const initialRenderCount = renderCount
+		const initialResult = result.current
+
+		// Force a store update that creates new references but has same content
+		// This simulates what Immer does - new references for same data
+		act(() => {
+			useOpencodeStore.setState((state) => ({
+				directories: {
+					...state.directories,
+					[TEST_DIRECTORY]: {
+						...state.directories[TEST_DIRECTORY],
+						// Create new array references but same content
+						messages: {
+							...state.directories[TEST_DIRECTORY].messages,
+							[TEST_SESSION_ID]: [
+								...(state.directories[TEST_DIRECTORY].messages[TEST_SESSION_ID] || []),
+							],
+						},
+						parts: {
+							...state.directories[TEST_DIRECTORY].parts,
+						},
+					},
+				},
+			}))
+		})
+
+		// With shallow equality, should NOT re-render because array contents are identical
+		// Without shallow equality, WOULD re-render because array reference changed
+		expect(renderCount).toBe(initialRenderCount)
+		expect(result.current).toBe(initialResult) // Same reference
+	})
 })

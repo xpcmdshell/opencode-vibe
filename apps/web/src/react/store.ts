@@ -10,6 +10,7 @@
 
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
+import { useShallow } from "zustand/react/shallow"
 import { Binary } from "@/lib/binary"
 import type { GlobalEvent } from "@opencode-ai/sdk/client"
 
@@ -564,3 +565,55 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 		},
 	})),
 )
+
+// ═══════════════════════════════════════════════════════════════
+// MEMOIZED SELECTORS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Memoized selector for part summary to avoid deep object traversal.
+ * Returns undefined for non-tool parts or pending status.
+ *
+ * This function prevents unnecessary re-renders caused by Immer's new object references.
+ * The selector extracts only the summary string, which allows Zustand's default equality
+ * check (Object.is) to correctly identify when the value hasn't changed.
+ *
+ * For primitive values like strings, Object.is compares by value, so identical strings
+ * are considered equal even if extracted from different part objects.
+ *
+ * @param directory - Project directory path
+ * @param messageId - Message ID containing the part
+ * @param partId - Part ID to get summary for
+ * @returns Summary string or undefined
+ *
+ * @example
+ * ```tsx
+ * function TaskComponent({ messageId, partId }) {
+ *   const summary = usePartSummary("/my/project", messageId, partId)
+ *   return summary ? <div>{summary}</div> : null
+ * }
+ * ```
+ */
+export function usePartSummary(
+	directory: string,
+	messageId: string,
+	partId: string,
+): string | undefined {
+	return useOpencodeStore((state) => {
+		const parts = state.directories[directory]?.parts[messageId]
+		if (!parts) return undefined
+
+		const part = parts.find((p) => p.id === partId)
+		if (!part || part.type !== "tool") {
+			return undefined
+		}
+
+		// Type assertion needed because Part has unknown fields
+		const partState = part.state as { status: string; metadata?: { summary?: string } } | undefined
+		if (!partState || partState.status === "pending") {
+			return undefined
+		}
+
+		return partState.metadata?.summary
+	})
+}

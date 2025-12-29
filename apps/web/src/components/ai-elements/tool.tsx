@@ -14,7 +14,7 @@ import {
 	WrenchIcon,
 	XCircleIcon,
 } from "lucide-react"
-import type { ComponentProps, ReactNode } from "react"
+import React, { type ComponentProps, type ReactNode } from "react"
 import { useState, isValidElement } from "react"
 import { CodeBlock } from "./code-block"
 import { SubagentCurrentActivity } from "./task"
@@ -217,7 +217,7 @@ type ToolCardProps = ComponentProps<typeof Collapsible> & {
 	toolPart: ToolPart
 }
 
-const ToolCard = ({ toolPart, className, ...props }: ToolCardProps) => {
+const ToolCardComponent = ({ toolPart, className, ...props }: ToolCardProps) => {
 	const { tool, state } = toolPart
 	const { primary, secondary } = getToolContextLines(toolPart)
 	const output = "output" in state ? state.output : undefined
@@ -367,6 +367,31 @@ const ToolCard = ({ toolPart, className, ...props }: ToolCardProps) => {
 		</Collapsible>
 	)
 }
+
+/**
+ * Memoized ToolCard with content-aware comparison.
+ *
+ * Problem: Immer creates new object references on every store update,
+ * breaking React.memo shallow comparison even when content is identical.
+ *
+ * Solution: Deep compare actual content (id, status, summary) instead
+ * of reference equality to prevent unnecessary Framer Motion re-animations.
+ */
+const ToolCard = React.memo(ToolCardComponent, (prev, next) => {
+	// Compare actual content, not Immer references
+	if (prev.toolPart.id !== next.toolPart.id) return false
+	if (prev.toolPart.state.status !== next.toolPart.state.status) return false
+	if (prev.className !== next.className) return false
+
+	// Safe to access metadata only when not pending
+	if (prev.toolPart.state.status !== "pending" && next.toolPart.state.status !== "pending") {
+		const prevSummary = (prev.toolPart.state as any).metadata?.summary
+		const nextSummary = (next.toolPart.state as any).metadata?.summary
+		if (prevSummary !== nextSummary) return false
+	}
+
+	return true
+})
 
 export type ToolHeaderProps = {
 	title?: string
