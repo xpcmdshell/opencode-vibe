@@ -111,6 +111,9 @@ The [Durable Streams Protocol](https://github.com/durable-streams/durable-stream
 4. [Client-Side Implementation](#4-client-side-implementation)
 5. [Server-Side Changes](#5-server-side-changes)
 6. [Migration Path](#6-migration-path)
+7. [Quick Wins](#quick-wins-do-today)
+8. [OpenCode Internals Deep Dive](#8-opencode-internals-deep-dive)
+9. [Durable Streams Protocol Reference](#9-durable-streams-protocol-reference)
 
 ---
 
