@@ -42,7 +42,7 @@ describe("SessionLayout Hook Integration", () => {
 					ready: false,
 					sessions: [],
 					sessionStatus: {},
-				sessionLastActivity: {},
+					sessionLastActivity: {},
 					sessionDiff: {},
 					todos: {},
 					messages: {},

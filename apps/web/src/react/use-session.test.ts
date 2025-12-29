@@ -64,7 +64,7 @@ describe("useSession", () => {
 					ready: false,
 					sessions: [],
 					sessionStatus: {},
-				sessionLastActivity: {},
+					sessionLastActivity: {},
 					sessionDiff: {},
 					todos: {},
 					messages: {},
