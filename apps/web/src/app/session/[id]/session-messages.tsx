@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react"
 import type { UIMessage, ChatStatus } from "ai"
 import { useMessagesWithParts } from "@/react/use-messages-with-parts"
 import { useSessionStatus } from "@/react/use-session-status"
+import { useOpencodeStore } from "@/react/store"
 import { transformMessages } from "@/lib/transform-messages"
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message"
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from "@/components/ai-elements/tool"
@@ -20,6 +21,14 @@ interface SessionMessagesProps {
 	sessionId: string
 	directory?: string
 	initialMessages: UIMessage[]
+	initialStoreMessages: Array<{
+		id: string
+		sessionID: string
+		role: string
+		time: { created: number }
+		[key: string]: unknown
+	}>
+	initialStoreParts: Record<string, any[]>
 	/** External status from parent (e.g., when sending a message) */
 	status?: ChatStatus
 }
@@ -34,9 +43,22 @@ interface SessionMessagesProps {
  */
 export function SessionMessages({
 	sessionId,
+	directory,
 	initialMessages,
+	initialStoreMessages,
+	initialStoreParts,
 	status: externalStatus,
 }: SessionMessagesProps) {
+	// Hydrate store on mount with server-fetched data
+	// CRITICAL: Must happen BEFORE SSE events start arriving
+	// Empty deps = runs once on mount only
+	useEffect(() => {
+		const store = useOpencodeStore.getState()
+		// Use directory from props or fallback to session's directory
+		const targetDirectory = directory || "/"
+		store.hydrateMessages(targetDirectory, sessionId, initialStoreMessages, initialStoreParts)
+	}, []) // Empty deps - run once on mount
+
 	// Track if we've received store updates (to know when to switch from initial to store data)
 	const [hasStoreData, setHasStoreData] = useState(false)
 

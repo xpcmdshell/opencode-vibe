@@ -37,26 +37,64 @@ async function getSession(id: string, directory?: string): Promise<Session | nul
 /**
  * Fetch messages for a session (NOT cached - messages are real-time and can be very large)
  * SSE handles real-time updates after initial load
+ *
+ * Returns both transformed UIMessages for initial render AND raw messages/parts for store hydration
  */
 async function getMessages(id: string, directory?: string) {
 	try {
 		const client = createClient(directory)
 		const result = await client.session.messages({ path: { id } })
 
-		if (!result.data) return []
+		if (!result.data) {
+			return {
+				uiMessages: [],
+				messages: [],
+				parts: {},
+			}
+		}
 
-		// Convert to OpenCodeMessage format for transform
-		// SDK returns union type, cast to our expected shape
-		const opencodeMessages: OpenCodeMessage[] = (result.data as unknown as SDKMessage[]).map(
-			(msg) => ({
-				info: msg as unknown as OpenCodeMessage["info"],
-				parts: (msg.parts || []) as OpenCodeMessage["parts"],
-			}),
-		)
+		// SDK returns messages with {id, role, createdAt, parts[]}
+		const sdkMessages = result.data as unknown as SDKMessage[]
 
-		return transformMessages(opencodeMessages)
+		// Extract messages for store (without parts)
+		const messages = sdkMessages.map((msg) => ({
+			id: msg.id,
+			sessionID: id,
+			role: msg.role,
+			time: { created: new Date(msg.createdAt).getTime() },
+		}))
+
+		// Extract parts grouped by messageID for store
+		const parts: Record<string, any[]> = {}
+		for (const msg of sdkMessages) {
+			if (msg.parts && Array.isArray(msg.parts) && msg.parts.length > 0) {
+				parts[msg.id] = msg.parts.map((part: any, index: number) => ({
+					id: part.id || `${msg.id}-part-${index}`,
+					messageID: msg.id,
+					type: part.type || "text",
+					content: part.content || part.text || "",
+					...part, // Preserve all other fields
+				}))
+			}
+		}
+
+		// Convert to OpenCodeMessage format for initial UI render
+		const opencodeMessages: OpenCodeMessage[] = sdkMessages.map((msg) => ({
+			info: msg as unknown as OpenCodeMessage["info"],
+			parts: (msg.parts || []) as OpenCodeMessage["parts"],
+		}))
+
+		return {
+			uiMessages: transformMessages(opencodeMessages),
+			messages,
+			parts,
+		}
 	} catch {
-		return []
+		return {
+			uiMessages: [],
+			messages: [],
+			parts: {},
+		}
 	}
 }
 
@@ -76,7 +114,7 @@ async function SessionContent({
 	const { dir: directory } = await searchParamsPromise
 
 	// Fetch both in parallel
-	const [session, initialMessages] = await Promise.all([
+	const [session, messageData] = await Promise.all([
 		getSession(sessionId, directory),
 		getMessages(sessionId, directory),
 	])
@@ -91,7 +129,9 @@ async function SessionContent({
 			session={session}
 			sessionId={sessionId}
 			directory={directory}
-			initialMessages={initialMessages}
+			initialMessages={messageData.uiMessages}
+			initialStoreMessages={messageData.messages}
+			initialStoreParts={messageData.parts}
 		/>
 	)
 }

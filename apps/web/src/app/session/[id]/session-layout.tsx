@@ -69,6 +69,14 @@ interface SessionLayoutProps {
 	sessionId: string
 	directory?: string
 	initialMessages: UIMessage[]
+	initialStoreMessages: Array<{
+		id: string
+		sessionID: string
+		role: string
+		time: { created: number }
+		[key: string]: unknown
+	}>
+	initialStoreParts: Record<string, any[]>
 }
 
 /**
@@ -309,11 +317,21 @@ function SessionContent({
 	sessionId,
 	directory,
 	initialMessages,
+	initialStoreMessages,
+	initialStoreParts,
 	initialSession,
 }: {
 	sessionId: string
 	directory?: string
 	initialMessages: UIMessage[]
+	initialStoreMessages: Array<{
+		id: string
+		sessionID: string
+		role: string
+		time: { created: number }
+		[key: string]: unknown
+	}>
+	initialStoreParts: Record<string, any[]>
 	initialSession: Session
 }) {
 	// Debug panel state
@@ -421,6 +439,8 @@ function SessionContent({
 						sessionId={sessionId}
 						directory={directory}
 						initialMessages={initialMessages}
+						initialStoreMessages={initialStoreMessages}
+						initialStoreParts={initialStoreParts}
 						status={isLoading ? "submitted" : undefined}
 					/>
 				</main>
@@ -474,6 +494,8 @@ export function SessionLayout({
 	sessionId,
 	directory,
 	initialMessages,
+	initialStoreMessages,
+	initialStoreParts,
 }: SessionLayoutProps) {
 	// Default URL to localhost:4056 (OpenCode server)
 	const url = process.env.NEXT_PUBLIC_OPENCODE_URL || "http://localhost:4056"
@@ -484,6 +506,8 @@ export function SessionLayout({
 				sessionId={sessionId}
 				directory={directory}
 				initialMessages={initialMessages}
+				initialStoreMessages={initialStoreMessages}
+				initialStoreParts={initialStoreParts}
 				initialSession={session}
 			/>
 		</OpenCodeProvider>

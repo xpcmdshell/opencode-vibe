@@ -1679,4 +1679,364 @@ describe("OpencodeStore", () => {
 			expect(dirB.messages["session-1"].some((m) => m.id === "msg-1")).toBe(false)
 		})
 	})
+
+	// ═══════════════════════════════════════════════════════════════
+	// HYDRATION - Server-side initial data
+	// ═══════════════════════════════════════════════════════════════
+	describe("hydrateMessages", () => {
+		test("populates empty store with messages and parts", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const messages: Message[] = [
+				{ id: "msg-1", sessionID: "session-1", role: "user" },
+				{ id: "msg-2", sessionID: "session-1", role: "assistant" },
+			]
+
+			const parts: Record<string, Part[]> = {
+				"msg-2": [
+					{ id: "part-1", messageID: "msg-2", type: "text", content: "Hello" },
+					{ id: "part-2", messageID: "msg-2", type: "tool", content: "" },
+				],
+			}
+
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, parts)
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+
+			// Verify messages hydrated
+			expect(dir.messages["session-1"]).toHaveLength(2)
+			expect(dir.messages["session-1"][0].id).toBe("msg-1")
+			expect(dir.messages["session-1"][1].id).toBe("msg-2")
+
+			// Verify parts hydrated
+			expect(dir.parts["msg-2"]).toHaveLength(2)
+			expect(dir.parts["msg-2"][0].id).toBe("part-1")
+			expect(dir.parts["msg-2"][1].id).toBe("part-2")
+		})
+
+		test("sorts messages by ID", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const messages: Message[] = [
+				{ id: "msg-c", sessionID: "session-1", role: "user" },
+				{ id: "msg-a", sessionID: "session-1", role: "user" },
+				{ id: "msg-b", sessionID: "session-1", role: "assistant" },
+			]
+
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, {})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.messages["session-1"][0].id).toBe("msg-a")
+			expect(dir.messages["session-1"][1].id).toBe("msg-b")
+			expect(dir.messages["session-1"][2].id).toBe("msg-c")
+		})
+
+		test("sorts parts by ID for each message", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const parts: Record<string, Part[]> = {
+				"msg-1": [
+					{ id: "part-c", messageID: "msg-1", type: "text", content: "C" },
+					{ id: "part-a", messageID: "msg-1", type: "text", content: "A" },
+					{ id: "part-b", messageID: "msg-1", type: "tool", content: "B" },
+				],
+			}
+
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", [], parts)
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.parts["msg-1"][0].id).toBe("part-a")
+			expect(dir.parts["msg-1"][1].id).toBe("part-b")
+			expect(dir.parts["msg-1"][2].id).toBe("part-c")
+		})
+
+		test("auto-creates directory if not exists", () => {
+			const store = useOpencodeStore.getState()
+			// Do NOT call initDirectory - verify auto-creation
+
+			const messages: Message[] = [{ id: "msg-1", sessionID: "session-1", role: "user" }]
+
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, {})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir).toBeDefined()
+			expect(dir.messages["session-1"]).toHaveLength(1)
+		})
+
+		test("SSE events do not duplicate hydrated messages", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// 1. Hydrate with initial message
+			const messages: Message[] = [{ id: "msg-1", sessionID: "session-1", role: "user" }]
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, {})
+
+			// 2. Receive SSE event for SAME message ID
+			const sseMessage: Message = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "user",
+				time: { created: Date.now() }, // Updated with timestamp
+			}
+
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.updated",
+					properties: { info: sseMessage },
+				},
+			} as any)
+
+			// Should NOT duplicate - still only 1 message
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.messages["session-1"]).toHaveLength(1)
+			expect(dir.messages["session-1"][0].time?.created).toBe(sseMessage.time?.created)
+		})
+
+		test("SSE events add NEW messages after hydration", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// 1. Hydrate with initial message
+			const messages: Message[] = [{ id: "msg-1", sessionID: "session-1", role: "user" }]
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, {})
+
+			// 2. Receive SSE event for NEW message ID
+			const newMessage: Message = {
+				id: "msg-2",
+				sessionID: "session-1",
+				role: "assistant",
+			}
+
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.updated",
+					properties: { info: newMessage },
+				},
+			} as any)
+
+			// Should add new message
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.messages["session-1"]).toHaveLength(2)
+			expect(dir.messages["session-1"][0].id).toBe("msg-1")
+			expect(dir.messages["session-1"][1].id).toBe("msg-2")
+		})
+
+		test("SSE events do not duplicate hydrated parts", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// 1. Hydrate with initial parts
+			const parts: Record<string, Part[]> = {
+				"msg-1": [
+					{
+						id: "part-1",
+						messageID: "msg-1",
+						type: "text",
+						content: "Original",
+					},
+				],
+			}
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", [], parts)
+
+			// 2. Receive SSE event for SAME part ID (updated content)
+			const ssePart: Part = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "text",
+				content: "Updated",
+			}
+
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.part.updated",
+					properties: { part: ssePart },
+				},
+			} as any)
+
+			// Should NOT duplicate - still only 1 part
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.parts["msg-1"]).toHaveLength(1)
+			expect(dir.parts["msg-1"][0].content).toBe("Updated")
+		})
+
+		test("SSE events add NEW parts after hydration", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// 1. Hydrate with initial part
+			const parts: Record<string, Part[]> = {
+				"msg-1": [{ id: "part-1", messageID: "msg-1", type: "text", content: "First" }],
+			}
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", [], parts)
+
+			// 2. Receive SSE event for NEW part ID
+			const newPart: Part = {
+				id: "part-2",
+				messageID: "msg-1",
+				type: "tool",
+				content: "",
+			}
+
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.part.updated",
+					properties: { part: newPart },
+				},
+			} as any)
+
+			// Should add new part
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.parts["msg-1"]).toHaveLength(2)
+			expect(dir.parts["msg-1"][0].id).toBe("part-1")
+			expect(dir.parts["msg-1"][1].id).toBe("part-2")
+		})
+
+		test("hydrate then SSE - messages and parts both deduplicate correctly", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// 1. Hydrate with initial data
+			const messages: Message[] = [
+				{ id: "msg-1", sessionID: "session-1", role: "user" },
+				{ id: "msg-2", sessionID: "session-1", role: "assistant" },
+			]
+			const parts: Record<string, Part[]> = {
+				"msg-2": [
+					{
+						id: "part-1",
+						messageID: "msg-2",
+						type: "text",
+						content: "Original text",
+					},
+					{ id: "part-2", messageID: "msg-2", type: "tool", content: "" },
+				],
+			}
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, parts)
+
+			// 2. SSE updates existing message
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.updated",
+					properties: {
+						info: {
+							id: "msg-2",
+							sessionID: "session-1",
+							role: "assistant",
+							time: { created: 123, completed: 456 },
+						},
+					},
+				},
+			} as any)
+
+			// 3. SSE updates existing part
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.part.updated",
+					properties: {
+						part: {
+							id: "part-1",
+							messageID: "msg-2",
+							type: "text",
+							content: "Updated via SSE",
+						},
+					},
+				},
+			} as any)
+
+			// 4. SSE adds NEW message
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.updated",
+					properties: {
+						info: {
+							id: "msg-3",
+							sessionID: "session-1",
+							role: "user",
+						},
+					},
+				},
+			} as any)
+
+			// 5. SSE adds NEW part
+			store.handleSSEEvent({
+				directory: TEST_DIRECTORY,
+				payload: {
+					type: "message.part.updated",
+					properties: {
+						part: {
+							id: "part-3",
+							messageID: "msg-2",
+							type: "text",
+							content: "New part",
+						},
+					},
+				},
+			} as any)
+
+			// Verify final state
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+
+			// Messages: 2 hydrated + 1 new = 3 total (no duplicates)
+			expect(dir.messages["session-1"]).toHaveLength(3)
+			expect(dir.messages["session-1"][0].id).toBe("msg-1")
+			expect(dir.messages["session-1"][1].id).toBe("msg-2")
+			expect(dir.messages["session-1"][1].time?.completed).toBe(456) // Updated
+			expect(dir.messages["session-1"][2].id).toBe("msg-3")
+
+			// Parts: 2 hydrated + 1 new = 3 total (no duplicates)
+			expect(dir.parts["msg-2"]).toHaveLength(3)
+			expect(dir.parts["msg-2"][0].id).toBe("part-1")
+			expect(dir.parts["msg-2"][0].content).toBe("Updated via SSE") // Updated
+			expect(dir.parts["msg-2"][1].id).toBe("part-2")
+			expect(dir.parts["msg-2"][2].id).toBe("part-3")
+		})
+
+		test("handles empty messages and parts arrays", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", [], {})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.messages["session-1"]).toEqual([])
+			expect(Object.keys(dir.parts)).toHaveLength(0)
+		})
+
+		test("handles parts for multiple messages", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const messages: Message[] = [
+				{ id: "msg-1", sessionID: "session-1", role: "user" },
+				{ id: "msg-2", sessionID: "session-1", role: "assistant" },
+				{ id: "msg-3", sessionID: "session-1", role: "assistant" },
+			]
+
+			const parts: Record<string, Part[]> = {
+				"msg-2": [{ id: "part-a", messageID: "msg-2", type: "text", content: "A" }],
+				"msg-3": [
+					{ id: "part-b", messageID: "msg-3", type: "text", content: "B" },
+					{ id: "part-c", messageID: "msg-3", type: "tool", content: "" },
+				],
+			}
+
+			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, parts)
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.messages["session-1"]).toHaveLength(3)
+			expect(dir.parts["msg-2"]).toHaveLength(1)
+			expect(dir.parts["msg-3"]).toHaveLength(2)
+			expect(dir.parts["msg-1"]).toBeUndefined() // msg-1 has no parts
+		})
+	})
 })
