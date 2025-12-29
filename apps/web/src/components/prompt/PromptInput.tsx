@@ -82,6 +82,7 @@ export function PromptInput({
 		showAutocomplete,
 		hideAutocomplete,
 		setAutocompleteItems,
+		setAutocompleteIndex,
 		navigateAutocomplete,
 		insertFilePart,
 		reset,
@@ -202,14 +203,15 @@ export function PromptInput({
 
 			insertFilePart(path, cursorPos, replaceLength)
 
-			// Move cursor after file pill + space
-			const newCursorPos = cursorPos - replaceLength + `@${path}`.length + 1
-			setTimeout(() => {
+			// Wait for DOM update, then hide autocomplete and focus
+			requestAnimationFrame(() => {
+				hideAutocomplete()
 				if (editorRef.current) {
+					const newCursorPos = cursorPos - replaceLength + `@${path}`.length + 1
 					setCursorPosition(editorRef.current, newCursorPos)
 					editorRef.current.focus()
 				}
-			}, 0)
+			})
 		} else if (autocomplete.type === "command" && typeof item === "object" && "trigger" in item) {
 			// Replace slash command trigger with selected command
 			const cmd = item as SlashCommand
@@ -224,15 +226,15 @@ export function PromptInput({
 
 			setParts([{ type: "text", content: newText, start: 0, end: newText.length }])
 
-			setTimeout(() => {
+			// Wait for DOM update, then hide autocomplete and focus
+			requestAnimationFrame(() => {
+				hideAutocomplete()
 				if (editorRef.current) {
 					setCursorPosition(editorRef.current, newText.length)
 					editorRef.current.focus()
 				}
-			}, 0)
+			})
 		}
-
-		hideAutocomplete()
 	}, [autocomplete, parts, insertFilePart, hideAutocomplete, setParts])
 
 	/**
@@ -332,9 +334,7 @@ export function PromptInput({
 						return false
 					})
 					if (index !== -1) {
-						usePromptStore.setState((state) => ({
-							autocomplete: { ...state.autocomplete, selectedIndex: index },
-						}))
+						setAutocompleteIndex(index)
 						selectAutocompleteItem()
 					}
 				}}

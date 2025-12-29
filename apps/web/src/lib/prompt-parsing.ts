@@ -150,6 +150,8 @@ export function renderPartsToDOM(editor: HTMLDivElement, parts: Prompt): void {
 			pill.dataset.path = part.path
 			pill.textContent = part.content
 			pill.contentEditable = "false"
+			pill.className =
+				"inline-flex items-center px-1.5 py-0.5 mx-0.5 bg-primary text-primary-foreground rounded text-sm font-mono"
 			editor.appendChild(pill)
 		}
 	}

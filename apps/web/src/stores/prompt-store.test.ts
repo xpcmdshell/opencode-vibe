@@ -178,6 +178,47 @@ describe("usePromptStore", () => {
 				end: 12,
 			})
 		})
+
+		test("should update cursor position after insertion", () => {
+			// Setup: "Hello world"
+			const initialParts: Prompt = [{ type: "text", content: "Hello world", start: 0, end: 11 }]
+			usePromptStore.getState().setParts(initialParts, 6)
+
+			// Insert @src/app.ts at position 6, replacing 0 chars
+			usePromptStore.getState().insertFilePart("src/app.ts", 6, 0)
+
+			const state = usePromptStore.getState()
+			// Cursor should be at end of file part + trailing space
+			// "Hello " (6) + "@src/app.ts" (11) + " " (1) = 18
+			expect(state.cursor).toBe(18)
+		})
+
+		test("should update cursor position when replacing text", () => {
+			// Setup: "Hello @src world"
+			const initialParts: Prompt = [
+				{ type: "text", content: "Hello @src world", start: 0, end: 16 },
+			]
+			usePromptStore.getState().setParts(initialParts, 10)
+
+			// Replace "@src" (4 chars) at position 10 with file part
+			usePromptStore.getState().insertFilePart("src/app.ts", 10, 4)
+
+			const state = usePromptStore.getState()
+			// Cursor should be at: "Hello " (6) + "@src/app.ts" (11) + " " (1) = 18
+			expect(state.cursor).toBe(18)
+		})
+
+		test("should update cursor position at start", () => {
+			const initialParts: Prompt = [{ type: "text", content: "Hello", start: 0, end: 5 }]
+			usePromptStore.getState().setParts(initialParts, 0)
+
+			usePromptStore.getState().insertFilePart("src/app.ts", 0, 0)
+
+			const state = usePromptStore.getState()
+			// Cursor should be at end of file part + trailing space
+			// "@src/app.ts" (11) + " " (1) = 12
+			expect(state.cursor).toBe(12)
+		})
 	})
 
 	describe("autocomplete actions", () => {
@@ -290,6 +331,44 @@ describe("usePromptStore", () => {
 				expect(state.autocomplete.visible).toBe(true)
 				expect(state.autocomplete.type).toBe("file")
 				expect(state.autocomplete.query).toBe("src")
+			})
+		})
+
+		describe("setAutocompleteIndex", () => {
+			test("should set selected index", () => {
+				usePromptStore.setState({
+					autocomplete: {
+						visible: true,
+						type: "file",
+						query: "src",
+						items: ["a", "b", "c"],
+						selectedIndex: 0,
+					},
+				})
+
+				usePromptStore.getState().setAutocompleteIndex(2)
+
+				expect(usePromptStore.getState().autocomplete.selectedIndex).toBe(2)
+			})
+
+			test("should preserve other autocomplete state", () => {
+				usePromptStore.setState({
+					autocomplete: {
+						visible: true,
+						type: "command",
+						query: "new",
+						items: ["a", "b", "c"],
+						selectedIndex: 0,
+					},
+				})
+
+				usePromptStore.getState().setAutocompleteIndex(1)
+
+				const state = usePromptStore.getState()
+				expect(state.autocomplete.visible).toBe(true)
+				expect(state.autocomplete.type).toBe("command")
+				expect(state.autocomplete.query).toBe("new")
+				expect(state.autocomplete.items).toEqual(["a", "b", "c"])
 			})
 		})
 

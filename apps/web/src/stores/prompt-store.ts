@@ -31,6 +31,7 @@ interface PromptState {
 	showAutocomplete: (type: "file" | "command", query: string) => void
 	hideAutocomplete: () => void
 	setAutocompleteItems: (items: string[] | SlashCommand[]) => void
+	setAutocompleteIndex: (index: number) => void
 	navigateAutocomplete: (direction: "up" | "down") => void
 	reset: () => void
 }
@@ -53,6 +54,7 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 		// Find the text part containing the cursor
 		let charCount = 0
 		const newParts: Prompt = []
+		let newCursorPosition = atPosition
 
 		for (const part of parts) {
 			if (part.type === "image") {
@@ -108,6 +110,10 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 						end: partStart + before.length + content.length + 1,
 					})
 				}
+
+				// Calculate new cursor position:
+				// before.length + content.length + 1 (trailing space)
+				newCursorPosition = partStart + before.length + content.length + 1
 			} else {
 				newParts.push(part)
 			}
@@ -115,7 +121,7 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 			charCount = partEnd
 		}
 
-		set({ parts: newParts })
+		set({ parts: newParts, cursor: newCursorPosition })
 	},
 
 	showAutocomplete: (type, query) =>
@@ -137,6 +143,11 @@ export const usePromptStore = create<PromptState>((set, get) => ({
 	setAutocompleteItems: (items) =>
 		set((state) => ({
 			autocomplete: { ...state.autocomplete, items },
+		})),
+
+	setAutocompleteIndex: (index) =>
+		set((state) => ({
+			autocomplete: { ...state.autocomplete, selectedIndex: index },
 		})),
 
 	navigateAutocomplete: (direction) =>

@@ -57,7 +57,10 @@ export function Autocomplete({
 							className={`flex items-center gap-2 px-3 py-2 cursor-pointer w-full text-left text-sm hover:bg-accent ${
 								i === selectedIndex ? "bg-accent text-accent-foreground" : ""
 							}`}
-							onClick={() => onSelect(path)}
+							onMouseDown={(e) => {
+								e.preventDefault()
+								onSelect(path)
+							}}
 							role="option"
 							aria-selected={i === selectedIndex}
 						>
@@ -77,7 +80,10 @@ export function Autocomplete({
 							className={`flex items-center justify-between px-3 py-2 cursor-pointer w-full text-left text-sm hover:bg-accent ${
 								i === selectedIndex ? "bg-accent text-accent-foreground" : ""
 							}`}
-							onClick={() => onSelect(cmd)}
+							onMouseDown={(e) => {
+								e.preventDefault()
+								onSelect(cmd)
+							}}
 							role="option"
 							aria-selected={i === selectedIndex}
 						>

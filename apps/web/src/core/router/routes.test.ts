@@ -486,4 +486,176 @@ describe("routes", () => {
 			expect(route._config.timeout).toBe("10s")
 		})
 	})
+
+	describe("session.command", () => {
+		it("executes a slash command without optional parameters", async () => {
+			const mockSdk = {
+				session: {
+					command: mock(async () => ({
+						data: undefined,
+					})),
+				},
+			} as unknown as OpencodeClient
+
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const caller = createCaller(router, { sdk: mockSdk })
+
+			const result = await caller<void>("session.command", {
+				sessionId: "ses_123",
+				command: "compact",
+				arguments: "",
+			})
+
+			expect(result).toBeUndefined()
+			expect(mockSdk.session.command).toHaveBeenCalledWith({
+				path: { id: "ses_123" },
+				body: {
+					command: "compact",
+					arguments: "",
+				},
+			})
+		})
+
+		it("executes a slash command with agent and model", async () => {
+			const mockSdk = {
+				session: {
+					command: mock(async () => ({
+						data: undefined,
+					})),
+				},
+			} as unknown as OpencodeClient
+
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const caller = createCaller(router, { sdk: mockSdk })
+
+			const result = await caller<void>("session.command", {
+				sessionId: "ses_123",
+				command: "custom-command",
+				arguments: "arg1 arg2",
+				agent: "worker",
+				model: "claude-3-sonnet",
+			})
+
+			expect(result).toBeUndefined()
+			expect(mockSdk.session.command).toHaveBeenCalledWith({
+				path: { id: "ses_123" },
+				body: {
+					command: "custom-command",
+					arguments: "arg1 arg2",
+					agent: "worker",
+					model: "claude-3-sonnet",
+				},
+			})
+		})
+
+		it("validates sessionId is required", async () => {
+			const mockSdk = {
+				session: {
+					command: mock(async () => ({ data: undefined })),
+				},
+			} as unknown as OpencodeClient
+
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const caller = createCaller(router, { sdk: mockSdk })
+
+			await expect(
+				caller("session.command", { command: "compact", arguments: "" }),
+			).rejects.toThrow()
+		})
+
+		it("validates command is required", async () => {
+			const mockSdk = {
+				session: {
+					command: mock(async () => ({ data: undefined })),
+				},
+			} as unknown as OpencodeClient
+
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const caller = createCaller(router, { sdk: mockSdk })
+
+			await expect(
+				caller("session.command", { sessionId: "ses_123", arguments: "" }),
+			).rejects.toThrow()
+		})
+
+		it("validates arguments is required", async () => {
+			const mockSdk = {
+				session: {
+					command: mock(async () => ({ data: undefined })),
+				},
+			} as unknown as OpencodeClient
+
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const caller = createCaller(router, { sdk: mockSdk })
+
+			await expect(
+				caller("session.command", { sessionId: "ses_123", command: "compact" }),
+			).rejects.toThrow()
+		})
+
+		it("has 30s timeout configured", async () => {
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const route = router.resolve("session.command")
+
+			expect(route._config.timeout).toBe("30s")
+		})
+	})
+
+	describe("command.list", () => {
+		it("fetches all custom commands", async () => {
+			const mockCommands = [
+				{ name: "custom1", description: "First custom command" },
+				{ name: "custom2", description: "Second custom command" },
+			]
+
+			const mockSdk = {
+				command: {
+					list: mock(async () => ({
+						data: mockCommands,
+					})),
+				},
+			} as unknown as OpencodeClient
+
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const caller = createCaller(router, { sdk: mockSdk })
+
+			const result = await caller<typeof mockCommands>("command.list", {})
+
+			expect(result).toEqual(mockCommands)
+			expect(mockSdk.command.list).toHaveBeenCalledWith()
+		})
+
+		it("returns empty array when no custom commands exist", async () => {
+			const mockSdk = {
+				command: {
+					list: mock(async () => ({
+						data: [],
+					})),
+				},
+			} as unknown as OpencodeClient
+
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const caller = createCaller(router, { sdk: mockSdk })
+
+			const result = await caller<unknown[]>("command.list", {})
+
+			expect(result).toEqual([])
+		})
+
+		it("has 10s timeout configured", async () => {
+			const routes = createRoutes()
+			const router = createRouter(routes)
+			const route = router.resolve("command.list")
+
+			expect(route._config.timeout).toBe("10s")
+		})
+	})
 })

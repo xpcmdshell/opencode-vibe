@@ -39,6 +39,7 @@ import {
 } from "react"
 import type { GlobalEvent } from "@opencode-ai/sdk/client"
 import { EventSourceParserStream } from "eventsource-parser/stream"
+import { useSSEConnection, sseAtom } from "../atoms/sse"
 
 /**
  * Event types that can be subscribed to
@@ -53,6 +54,7 @@ export type SSEEventType =
 	| "message.created"
 	| "message.updated"
 	| "message.removed"
+	| "message.part.created"
 	| "message.part.updated"
 	| "message.part.removed"
 	| "todo.updated"
@@ -110,12 +112,26 @@ const HEARTBEAT_TIMEOUT_MS = 60_000
 const DEBUG_SSE = process.env.NEXT_PUBLIC_DEBUG_SSE === "true"
 
 /**
+ * Feature flag: Use Effect.Stream-based SSE atom
+ * Set NEXT_PUBLIC_USE_SSE_ATOM=true to enable atom-based implementation
+ */
+const USE_SSE_ATOM = process.env.NEXT_PUBLIC_USE_SSE_ATOM === "true"
+
+/**
  * SSEProvider - Manages SSE connection and event distribution
  *
  * Wrap your app with this provider to enable SSE subscriptions.
  * Uses fetch-based SSE with exponential backoff (3s → 6s → 12s → 24s → 30s cap).
  * Uses EventSourceParserStream for standardized SSE parsing.
  * Includes heartbeat monitoring (60s timeout) and visibility API support.
+ *
+ * ATOM INTEGRATION (Phase 2b):
+ * Set NEXT_PUBLIC_USE_SSE_ATOM=true to enable Effect.Stream-based connection
+ * from atoms/sse.ts. When enabled:
+ * - Uses useSSEConnection() hook from atoms/sse
+ * - Atom events are dispatched to existing subscribers
+ * - Preserves subscribe() API compatibility
+ * - Skip fetch-based connection logic
  *
  * Note: SSE connection only starts on the client (after hydration).
  * During SSR/prerender, the provider renders children without connecting.
@@ -141,6 +157,9 @@ export function SSEProvider({
 	// Store config in ref to avoid recreating connect callback
 	const configRef = useRef({ url, retryDelay, maxRetries })
 	configRef.current = { url, retryDelay, maxRetries }
+
+	// ATOM INTEGRATION: Use Effect.Stream-based connection (always call hook, conditionally use)
+	const atomConnection = useSSEConnection(sseAtom)
 
 	/**
 	 * Dispatch event to all subscribers of that event type
@@ -406,6 +425,14 @@ export function SSEProvider({
 		setMounted(true)
 	}, [])
 
+	// ATOM INTEGRATION: Dispatch atom events to subscribers when flag enabled
+	useEffect(() => {
+		if (!USE_SSE_ATOM || !atomConnection.latestEvent) return
+
+		// Dispatch to subscribers via the same queueEvent mechanism
+		queueEventRef.current(atomConnection.latestEvent)
+	}, [atomConnection.latestEvent])
+
 	// Handle visibility changes - disconnect when backgrounded, reconnect when foregrounded
 	useEffect(() => {
 		const handleVisibilityChange = () => {
@@ -435,8 +462,9 @@ export function SSEProvider({
 	}, [connect])
 
 	// Connect on mount, cleanup on unmount (client-side only)
+	// Skip fetch-based connection if using atom
 	useEffect(() => {
-		if (!mounted) return
+		if (!mounted || USE_SSE_ATOM) return
 		connect()
 		return () => {
 			abortController.current?.abort()
@@ -451,7 +479,8 @@ export function SSEProvider({
 
 	const value: SSEContextValue = {
 		subscribe,
-		connected: connectedRef.current,
+		// Use atom connection state if flag enabled, otherwise use fetch-based state
+		connected: USE_SSE_ATOM ? atomConnection.connected : connectedRef.current,
 		reconnect,
 	}
 

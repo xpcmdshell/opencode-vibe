@@ -82,23 +82,13 @@ describe("DEFAULT_SERVER constant", () => {
 	})
 })
 
-describe("server discovery atom factories", () => {
-	it("makeServersAtom and makeCurrentServerAtom exist and are callable", async () => {
-		// This test just ensures the exports exist
-		const { makeServersAtom, makeCurrentServerAtom } = await import("./servers")
+describe("server discovery hooks (Phase 1)", () => {
+	it("useServers and useCurrentServer hooks exist and are callable", async () => {
+		// This test ensures the React hooks exist
+		const { useServers, useCurrentServer, selectBestServer } = await import("./servers")
 
-		expect(typeof makeServersAtom).toBe("function")
-		expect(typeof makeCurrentServerAtom).toBe("function")
-	})
-
-	it("default exports exist", async () => {
-		const { serversAtom, currentServerAtom, useServers, useCurrentServer } = await import(
-			"./servers"
-		)
-
-		expect(serversAtom).toBeDefined()
-		expect(currentServerAtom).toBeDefined()
 		expect(typeof useServers).toBe("function")
 		expect(typeof useCurrentServer).toBe("function")
+		expect(typeof selectBestServer).toBe("function")
 	})
 })

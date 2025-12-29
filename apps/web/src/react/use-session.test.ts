@@ -4,6 +4,7 @@
  * Tests that useSession:
  * 1. Returns session from store
  * 2. Reacts to store updates (store updated by provider's SSE subscription)
+ * 3. Re-exports useSessionList from atoms/sessions.ts (Phase 3b)
  *
  * NOTE: SSE subscriptions are handled by OpenCodeProvider, not by this hook.
  * This hook simply reads from the store which is updated automatically.
@@ -38,7 +39,7 @@ mock.module("./provider", () => ({
 }))
 
 // Import after mocking
-const { useSession } = await import("./use-session")
+const { useSession, useSessionList } = await import("./use-session")
 
 afterAll(() => {
 	mock.restore()
@@ -142,5 +143,11 @@ describe("useSession", () => {
 
 		const { result } = renderHook(() => useSession("different-session"))
 		expect(result.current).toBeUndefined()
+	})
+
+	it("re-exports useSessionList from atoms/sessions.ts", () => {
+		// Verify that useSessionList is exported and is a function
+		expect(useSessionList).toBeDefined()
+		expect(typeof useSessionList).toBe("function")
 	})
 })

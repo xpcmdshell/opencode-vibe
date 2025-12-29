@@ -302,6 +302,39 @@ describe("prompt-parsing", () => {
 			expect(pill.contentEditable).toBe("false")
 		})
 
+		it("should render file pill with styling classes", () => {
+			const editor = document.createElement("div")
+			const parts: Prompt = [
+				{
+					type: "file",
+					path: "src/app.ts",
+					content: "@src/app.ts",
+					start: 0,
+					end: 11,
+				},
+			]
+
+			renderPartsToDOM(editor, parts)
+
+			const pill = editor.childNodes[0] as HTMLElement
+			const expectedClasses = [
+				"inline-flex",
+				"items-center",
+				"px-1.5",
+				"py-0.5",
+				"mx-0.5",
+				"bg-primary",
+				"text-primary-foreground",
+				"rounded",
+				"text-sm",
+				"font-mono",
+			]
+
+			for (const className of expectedClasses) {
+				expect(pill.classList.contains(className)).toBe(true)
+			}
+		})
+
 		it("should render mixed parts in order", () => {
 			const editor = document.createElement("div")
 			const parts: Prompt = [

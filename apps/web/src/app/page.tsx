@@ -2,6 +2,7 @@ import { createClient, globalClient } from "@/core/client"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { OpenCodeLogo } from "@/components/opencode-logo"
 import { ProjectsList } from "./projects-list"
+import { ServerStatus } from "./server-status"
 
 interface Session {
 	id: string
@@ -155,6 +156,8 @@ export default async function Dashboard() {
 							<OpenCodeLogo width={100} height={18} className="text-foreground" />
 							<span className="text-foreground/60 text-xs font-medium">|</span>
 							<span className="text-foreground font-semibold text-sm tracking-wide">VIBE</span>
+							<span className="text-foreground/60 text-xs font-medium">|</span>
+							<ServerStatus />
 						</div>
 						<ThemeToggle />
 					</div>

@@ -78,6 +78,28 @@ const SessionPromptAsyncInput = Schema.Struct({
 const ProviderListInput = Schema.Struct({})
 
 /**
+ * Input schema for session.command route
+ * - sessionId: required string
+ * - command: required string (slash command name)
+ * - arguments: required string (command arguments)
+ * - agent: optional string (agent name)
+ * - model: optional string (model selection)
+ */
+const SessionCommandInput = Schema.Struct({
+	sessionId: Schema.String,
+	command: Schema.String,
+	arguments: Schema.String,
+	agent: Schema.optional(Schema.String),
+	model: Schema.optional(Schema.String),
+})
+
+/**
+ * Input schema for command.list route
+ * No parameters required
+ */
+const CommandListInput = Schema.Struct({})
+
+/**
  * Create route definitions
  * Returns a nested object of routes that can be passed to createRouter()
  */
@@ -194,6 +216,31 @@ export function createRoutes() {
 					})
 					return response.data
 				}),
+
+			/**
+			 * Execute a slash command in a session
+			 *
+			 * @param sessionId - Session ID
+			 * @param command - Command name (without leading slash)
+			 * @param arguments - Command arguments as string
+			 * @param agent - Optional agent name
+			 * @param model - Optional model selection
+			 * @returns void (fire-and-forget)
+			 */
+			command: o({ timeout: "30s" })
+				.input(SessionCommandInput)
+				.handler(async ({ input, sdk }) => {
+					const response = await sdk.session.command({
+						path: { id: input.sessionId },
+						body: {
+							command: input.command,
+							arguments: input.arguments,
+							...(input.agent ? { agent: input.agent } : {}),
+							...(input.model ? { model: input.model } : {}),
+						},
+					})
+					return response.data
+				}),
 		},
 
 		provider: {
@@ -207,6 +254,20 @@ export function createRoutes() {
 				.handler(async ({ sdk }) => {
 					const response = await sdk.config.providers()
 					return response.data
+				}),
+		},
+
+		command: {
+			/**
+			 * List all custom commands
+			 *
+			 * @returns Array of custom command definitions
+			 */
+			list: o({ timeout: "10s" })
+				.input(CommandListInput)
+				.handler(async ({ sdk }) => {
+					const response = await sdk.command.list()
+					return response.data ?? []
 				}),
 		},
 	}

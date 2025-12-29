@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi } from "bun:test"
-import { render } from "@testing-library/react"
+import { render, fireEvent } from "@testing-library/react"
 import { JSDOM } from "jsdom"
 import { Autocomplete } from "./Autocomplete"
 import type { SlashCommand } from "@/types/prompt"
@@ -42,6 +42,24 @@ describe("Autocomplete", () => {
 	})
 
 	describe("file autocomplete", () => {
+		it("uses onMouseDown instead of onClick to prevent focus loss", () => {
+			const onSelect = vi.fn()
+			const files = ["src/app/page.tsx"]
+
+			const { container } = render(
+				<Autocomplete type="file" items={files} selectedIndex={0} onSelect={onSelect} />,
+			)
+
+			const firstFile = container.querySelector("button")
+			if (!firstFile) throw new Error("First file not found")
+
+			// Simulate mousedown event (should trigger onSelect)
+			fireEvent.mouseDown(firstFile)
+
+			expect(onSelect).toHaveBeenCalledTimes(1)
+			expect(onSelect).toHaveBeenCalledWith("src/app/page.tsx")
+		})
+
 		it("renders file paths with directory and filename separated", () => {
 			const files = ["src/app/page.tsx", "src/lib/utils.ts"]
 
@@ -95,7 +113,7 @@ describe("Autocomplete", () => {
 			const firstFile = container.querySelector("button")
 			if (!firstFile) throw new Error("First file not found")
 
-			firstFile.click()
+			fireEvent.mouseDown(firstFile)
 
 			expect(onSelect).toHaveBeenCalledTimes(1)
 			expect(onSelect).toHaveBeenCalledWith("src/app/page.tsx")
@@ -128,6 +146,23 @@ describe("Autocomplete", () => {
 				type: "custom",
 			},
 		]
+
+		it("uses onMouseDown instead of onClick for commands too", () => {
+			const onSelect = vi.fn()
+
+			const { container } = render(
+				<Autocomplete type="command" items={mockCommands} selectedIndex={0} onSelect={onSelect} />,
+			)
+
+			const firstCommand = container.querySelector("button")
+			if (!firstCommand) throw new Error("Command not found")
+
+			// Simulate mousedown event
+			fireEvent.mouseDown(firstCommand)
+
+			expect(onSelect).toHaveBeenCalledTimes(1)
+			expect(onSelect).toHaveBeenCalledWith(mockCommands[0])
+		})
 
 		it("renders command list with trigger and description", () => {
 			const { container } = render(
@@ -177,7 +212,7 @@ describe("Autocomplete", () => {
 			const firstCommand = container.querySelector("button")
 			if (!firstCommand) throw new Error("Command not found")
 
-			firstCommand.click()
+			fireEvent.mouseDown(firstCommand)
 
 			expect(onSelect).toHaveBeenCalledTimes(1)
 			expect(onSelect).toHaveBeenCalledWith(mockCommands[0])
