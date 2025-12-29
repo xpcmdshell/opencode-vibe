@@ -335,10 +335,11 @@ td:last-child {
 /* Markdown Code Blocks - Catppuccin themed */
 
 /* 
- * Let Shiki's catppuccin themes handle syntax highlighting colors.
- * We only style the container, not the pre/code elements.
- * Shiki catppuccin-latte uses #eff1f5 (Base) background
- * Shiki catppuccin-mocha uses #1e1e2e (Base) background
+ * Shiki catppuccin themes use Base as background, but we want Crust
+ * for better layering (darker than page background).
+ * 
+ * Catppuccin Latte: Base=#eff1f5, Crust=#dce0e8
+ * Catppuccin Mocha: Base=#1e1e2e, Crust=#11111b
  */
 
 /* Inline code - NOT inside pre blocks */
@@ -352,12 +353,11 @@ code:not(pre code) {
   border: 1px solid var(--surface1);
 }
 
-/* Code blocks - let Shiki themes control background */
+/* Code blocks - override Shiki's Base background with Crust for layering */
 pre {
   font-family: var(--font-mono), monospace;
   font-size: 0.875rem;
   line-height: 1.5;
-  /* DO NOT override background - Shiki catppuccin themes set this */
 }
 
 /* Code inside pre (override inline code styles) */
@@ -368,6 +368,25 @@ pre code {
   border-radius: 0;
   border: none;
   font-size: inherit;
+}
+
+/* Streamdown code blocks - force Crust background for layering */
+[data-streamdown="code-block"] {
+  border-color: var(--surface1) !important;
+}
+
+[data-streamdown="code-block-header"] {
+  background: var(--surface0) !important;
+  border-bottom: 1px solid var(--surface1);
+}
+
+[data-streamdown="code-block-body"] {
+  /* Catppuccin Crust - darker than Base for visual layering */
+  background: #dce0e8 !important; /* Latte Crust */
+}
+
+.dark [data-streamdown="code-block-body"] {
+  background: #11111b !important; /* Mocha Crust */
 }
 
 /* Scrollbar for code blocks - match theme */

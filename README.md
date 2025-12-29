@@ -26,29 +26,20 @@ Next.js 16 rebuild of the OpenCode web application. Real-time chat UI with strea
 bun install
 ```
 
-### 2. Start OpenCode Backend
+### 2. Start OpenCode (Any Mode)
 
-In a **separate terminal**, navigate to your project directory and start the OpenCode server:
+The web UI discovers running OpenCode processes automatically. Use whatever mode you want:
 
 ```bash
-# Navigate to the project you want to work on
+# TUI mode (interactive terminal)
 cd /path/to/your/project
+opencode
 
-# Start OpenCode server on port 4056 (default for web UI)
-opencode serve -p 4056
+# Or serve mode (headless)
+opencode serve
 ```
 
-> **Important:** The `opencode serve` command starts the HTTP/SSE server that the web UI connects to. This is different from the interactive `opencode` TUI - you need the server mode for the web UI to work.
-
-**Common port configurations:**
-
-```bash
-# Default setup (recommended)
-opencode serve -p 4056
-
-# Custom port (update NEXT_PUBLIC_OPENCODE_URL to match)
-opencode serve -p 5000
-```
+Run as many as you want, in different directories. The web UI finds them all.
 
 ### 3. Start the Web UI
 
@@ -69,82 +60,76 @@ You should see the OpenCode web interface with your sessions.
 
 ## Features
 
+- **Multi-server discovery** - Finds all running OpenCode processes (TUIs, serves) automatically via `lsof`
+- **Cross-process messaging** - Send from web UI, appears in your TUI. Routes to the server that owns the session
 - **Real-time streaming** - Messages stream in as the AI generates them
-- **SSE sync** - All updates pushed via Server-Sent Events
+- **SSE sync** - All updates pushed via Server-Sent Events, merged from all discovered servers
 - **Slash commands** - Type `/` for actions like `/fix`, `/test`, `/refactor`
 - **File references** - Type `@` to fuzzy-search and attach files as context
 - **Catppuccin theme** - Latte (light) / Mocha (dark) with proper syntax highlighting
-- **Session management** - Create, switch, and browse conversation history
 
 ---
 
 ## Architecture
 
+**Zero-config server discovery.** The web UI finds all running OpenCode processes automatically.
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Browser                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │              Next.js Web UI (port 8423)                 │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │    │
-│  │  │   Session   │  │   Message   │  │   SSE Provider  │  │    │
-│  │  │    List     │  │   Display   │  │   (real-time)   │  │    │
-│  │  └─────────────┘  └─────────────┘  └─────────────────┘  │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                   │
-│                              │ HTTP + SSE                        │
-│                              ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │            OpenCode Backend (port 4056)                 │    │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │    │
-│  │  │   Session   │  │   Message   │  │   AI Provider   │  │    │
-│  │  │   Manager   │  │   Handler   │  │   (Anthropic)   │  │    │
-│  │  └─────────────┘  └─────────────┘  └─────────────────┘  │    │
-│  └─────────────────────────────────────────────────────────┘    │
+│                        YOUR MACHINE                             │
+│                                                                 │
+│   Terminal 1          Terminal 2          Terminal 3            │
+│   ┌─────────┐        ┌─────────┐        ┌─────────┐            │
+│   │opencode │        │opencode │        │opencode │            │
+│   │  tui    │        │  tui    │        │ serve   │            │
+│   │ :4096   │        │ :5123   │        │ :6421   │            │
+│   │ ~/foo   │        │ ~/bar   │        │ ~/baz   │            │
+│   └────┬────┘        └────┬────┘        └────┬────┘            │
+│        │                  │                  │                  │
+│        └──────────────────┼──────────────────┘                  │
+│                           │                                     │
+│                    ┌──────┴──────┐                              │
+│                    │    lsof     │  discovers all               │
+│                    │   + verify  │  opencode processes          │
+│                    └──────┬──────┘                              │
+│                           │                                     │
+│                           ▼                                     │
+│   ┌─────────────────────────────────────────────────────────┐  │
+│   │                 WEB UI (:8423)                           │  │
+│   │                                                          │  │
+│   │   ~/foo sessions ──┐                                     │  │
+│   │   ~/bar sessions ──┼── all projects, one view            │  │
+│   │   ~/baz sessions ──┘                                     │  │
+│   │                                                          │  │
+│   │   send message → routes to server that owns the session  │  │
+│   └─────────────────────────────────────────────────────────┘  │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Components
+### How Discovery Works
 
-| Component            | Port | Purpose                                             |
-| -------------------- | ---- | --------------------------------------------------- |
-| **OpenCode Backend** | 4056 | AI chat backend, session management, tool execution |
-| **Next.js Web UI**   | 8423 | Browser interface, real-time message display        |
+1. API route runs `lsof` to find processes listening on TCP with "bun" or "opencode" in the command
+2. Hits `/project` endpoint on each candidate to verify it's actually OpenCode
+3. Opens SSE stream to each verified server
+4. Events include `directory` field → routes to correct project in the store
+
+**The cool part:** Send a message from the web UI and it appears in your TUI. The web discovers which server owns the session and routes there.
 
 ---
 
 ## Configuration
 
-### Environment Variables
-
-Create a `.env.local` file in `apps/web/` to customize:
+Mostly unnecessary - discovery handles it. But if you need overrides:
 
 ```bash
-# OpenCode backend URL (default: http://localhost:4056)
+# apps/web/.env.local
+
+# Fallback URL if discovery finds nothing (default: http://localhost:4056)
 NEXT_PUBLIC_OPENCODE_URL=http://localhost:4056
 
-# Project directory to sync (optional - uses OpenCode's current directory)
+# Force a specific directory (optional)
 NEXT_PUBLIC_OPENCODE_DIRECTORY=/path/to/your/project
-```
-
-### Custom Ports
-
-**Change OpenCode port:**
-
-```bash
-opencode serve -p 5000
-```
-
-Then update your `.env.local`:
-
-```bash
-NEXT_PUBLIC_OPENCODE_URL=http://localhost:5000
-```
-
-**Change Web UI port:**
-
-```bash
-# Edit apps/web/package.json "dev" script, or:
-bun --cwd apps/web next dev --port 3000
 ```
 
 ---
@@ -244,41 +229,24 @@ function SessionView({ sessionId }: { sessionId: string }) {
 
 ## Troubleshooting
 
-### "Failed to connect to OpenCode"
+### "No servers discovered"
 
-1. **Check OpenCode is running:**
+```bash
+# Check what's actually running
+lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | grep -E 'bun|opencode'
+```
 
-   ```bash
-   curl http://localhost:4056/health
-   ```
-
-   Should return `{"status":"ok"}`
-
-2. **Check the port matches:**
-   - OpenCode default: `4056`
-   - Web UI expects: `NEXT_PUBLIC_OPENCODE_URL` (default `http://localhost:4056`)
-
-3. **Restart OpenCode:**
-
-   ```bash
-   # Kill existing process
-   pkill -f "opencode serve"
-
-   # Start fresh
-   cd /your/project && opencode serve -p 4056
-   ```
+Should show at least one process. If not, start OpenCode somewhere.
 
 ### "No sessions showing"
 
-1. OpenCode needs an active project directory
-2. Make sure you started OpenCode from within a project folder
-3. Check the browser console for SSE connection errors
+1. OpenCode needs to be running in a project directory
+2. Check browser console for discovery/SSE errors
+3. Try the discovery endpoint directly: `curl http://localhost:8423/api/opencode-servers`
 
-### "Messages not updating in real-time"
+### "Messages not updating"
 
-1. Check SSE connection in browser DevTools → Network → EventStream
-2. Look for `/_next/...` SSE connections
-3. Verify no CORS errors in console
+Check SSE connections in DevTools → Network → filter by "event". Should see active streams to discovered servers.
 
 ---
 

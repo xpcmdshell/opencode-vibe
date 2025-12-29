@@ -68,8 +68,8 @@ export function SessionMessages({
 	const isLoading = status === "submitted" || status === "streaming"
 
 	return (
-		<div className="flex flex-col h-full overflow-hidden">
-			<Conversation className="flex-1 min-h-0 overflow-hidden">
+		<div className="flex flex-col h-full min-h-0">
+			<Conversation className="flex-1 min-h-0">
 				{messages.length === 0 && !isLoading ? (
 					<ConversationEmptyState title="No messages yet" description="Start a conversation" />
 				) : (
@@ -117,6 +117,7 @@ export function SessionMessages({
 												input?: unknown
 												output?: unknown
 												errorText?: string
+												_opencode?: any // Preserved OpenCode ToolPart
 											}
 
 											// Runtime sanitization - safety net for cached data with invalid chars
@@ -127,6 +128,12 @@ export function SessionMessages({
 												"_",
 											) as typeof toolPart.type
 
+											// If OpenCode ToolPart is available, use enhanced ToolCard
+											if (toolPart._opencode) {
+												return <Tool key={partKey} toolPart={toolPart._opencode} />
+											}
+
+											// Fallback to basic AI SDK tool rendering
 											return (
 												<Tool key={partKey}>
 													<ToolHeader

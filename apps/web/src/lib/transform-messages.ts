@@ -39,6 +39,8 @@ type ToolUIPart = {
 	input?: unknown
 	output?: unknown
 	errorText?: string
+	/** Preserve original OpenCode ToolPart for enhanced display */
+	_opencode?: ToolPart
 }
 
 type SupportedUIPart = TextUIPart | ReasoningUIPart | FileUIPart | StepStartUIPart | ToolUIPart
@@ -135,6 +137,7 @@ export function transformPart(part: Part): SupportedUIPart | null {
 						...baseTool,
 						state: "input-streaming" as const,
 						input: "input" in toolPart.state ? toolPart.state.input : undefined,
+						_opencode: toolPart,
 					}
 
 				case "input-available":
@@ -142,6 +145,7 @@ export function transformPart(part: Part): SupportedUIPart | null {
 						...baseTool,
 						state: "input-available" as const,
 						input: "input" in toolPart.state ? toolPart.state.input : {},
+						_opencode: toolPart,
 					}
 
 				case "output-available":
@@ -150,6 +154,7 @@ export function transformPart(part: Part): SupportedUIPart | null {
 						state: "output-available" as const,
 						input: "input" in toolPart.state ? toolPart.state.input : {},
 						output: "output" in toolPart.state ? toolPart.state.output : undefined,
+						_opencode: toolPart,
 					}
 
 				case "output-error":
@@ -158,6 +163,7 @@ export function transformPart(part: Part): SupportedUIPart | null {
 						state: "output-error" as const,
 						input: "input" in toolPart.state ? toolPart.state.input : {},
 						errorText: "error" in toolPart.state ? toolPart.state.error : "Unknown error",
+						_opencode: toolPart,
 					}
 			}
 			break
