@@ -43,7 +43,7 @@ async function getSession(id: string, directory?: string): Promise<Session | nul
  * SSE will stream in new messages as they arrive
  * User can scroll up to load older messages
  */
-const INITIAL_MESSAGE_LIMIT = 20
+const INITIAL_MESSAGE_LIMIT = 50
 
 /**
  * Fetch messages for a session (NOT cached - messages are real-time and can be very large)

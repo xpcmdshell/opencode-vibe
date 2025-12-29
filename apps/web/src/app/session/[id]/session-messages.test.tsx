@@ -30,6 +30,9 @@ describe("SessionMessages Hydration Integration", () => {
 					todos: {},
 					messages: {},
 					parts: {},
+					contextUsage: {},
+					compaction: {},
+					modelLimits: {},
 				},
 			},
 		})
@@ -376,6 +379,9 @@ describe("SessionMessages Hydration Edge Cases", () => {
 					todos: {},
 					messages: {},
 					parts: {},
+					contextUsage: {},
+					compaction: {},
+					modelLimits: {},
 				},
 			},
 		})

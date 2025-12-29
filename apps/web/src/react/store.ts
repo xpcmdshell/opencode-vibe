@@ -39,6 +39,23 @@ export type Message = {
 	parentID?: string // Assistant messages have parentID pointing to user message
 	time?: { created: number; completed?: number }
 	finish?: string // "stop", "tool-calls", etc. - only set when complete
+	tokens?: {
+		input: number
+		output: number
+		reasoning?: number
+		cache?: {
+			read: number
+			write: number
+		}
+	}
+	agent?: string // Agent name (e.g., "compaction")
+	model?: {
+		name: string
+		limits?: {
+			context: number
+			output: number
+		}
+	}
 	[key: string]: unknown // Allow additional fields
 }
 
@@ -78,6 +95,33 @@ export type FileDiff = {
 }
 
 /**
+ * Context usage for a session
+ */
+export type ContextUsage = {
+	used: number
+	limit: number
+	percentage: number
+	isNearLimit: boolean
+	tokens: {
+		input: number
+		output: number
+		cached: number
+	}
+	lastUpdated: number
+}
+
+/**
+ * Compaction state for a session
+ */
+export type CompactionState = {
+	isCompacting: boolean
+	isAutomatic: boolean
+	startedAt: number
+	messageId?: string
+	progress: "pending" | "generating" | "complete"
+}
+
+/**
  * Directory-scoped state
  */
 export interface DirectoryState {
@@ -89,6 +133,9 @@ export interface DirectoryState {
 	todos: Record<string, Todo[]>
 	messages: Record<string, Message[]>
 	parts: Record<string, Part[]>
+	contextUsage: Record<string, ContextUsage>
+	compaction: Record<string, CompactionState>
+	modelLimits: Record<string, { context: number; output: number }>
 }
 
 /**
@@ -140,6 +187,16 @@ type OpencodeActions = {
 		updater: (draft: Message) => void,
 	) => void
 	removeMessage: (directory: string, sessionID: string, messageID: string) => void
+
+	// Model limits caching (for context usage calculation)
+	setModelLimits: (
+		directory: string,
+		limits: Record<string, { context: number; output: number }>,
+	) => void
+	getModelLimits: (
+		directory: string,
+		modelID: string,
+	) => { context: number; output: number } | undefined
 }
 
 /**
@@ -154,6 +211,9 @@ const createEmptyDirectoryState = (): DirectoryState => ({
 	todos: {},
 	messages: {},
 	parts: {},
+	contextUsage: {},
+	compaction: {},
+	modelLimits: {},
 })
 
 /**
@@ -254,6 +314,15 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 						break
 					}
 
+					case "session.compacted": {
+						const sessionID = event.properties.sessionID
+						// Clear compaction state when compaction completes
+						if (dir.compaction[sessionID]) {
+							delete dir.compaction[sessionID]
+						}
+						break
+					}
+
 					// ═══════════════════════════════════════════════════════════════
 					// MESSAGE EVENTS
 					// ═══════════════════════════════════════════════════════════════
@@ -273,6 +342,63 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 							messages[result.index] = message
 						} else {
 							messages.splice(result.index, 0, message)
+						}
+
+						// Extract token usage if available
+						// Try message.model.limits first, then fall back to cached limits by modelID
+						if (message.tokens) {
+							const tokens = message.tokens
+							let limits: { context: number; output: number } | undefined
+
+							// First try: message.model.limits (if backend sends it)
+							if (message.model?.limits) {
+								limits = message.model.limits
+								// Cache for future use
+								if (message.model.name) {
+									dir.modelLimits[message.model.name] = {
+										context: limits.context,
+										output: limits.output,
+									}
+								}
+							}
+							// Second try: cached limits by modelID (backend sends modelID as string)
+							else {
+								const modelID = message.modelID as string | undefined
+								if (modelID && dir.modelLimits[modelID]) {
+									limits = dir.modelLimits[modelID]
+								}
+							}
+
+							// Calculate context usage if we have limits
+							if (limits) {
+								const used = tokens.input + (tokens.cache?.read || 0) + tokens.output
+								const usableContext = limits.context - Math.min(limits.output, 32000)
+								const percentage = Math.round((used / usableContext) * 100)
+
+								dir.contextUsage[sessionID] = {
+									used,
+									limit: limits.context,
+									percentage,
+									isNearLimit: percentage >= 80,
+									tokens: {
+										input: tokens.input,
+										output: tokens.output,
+										cached: tokens.cache?.read || 0,
+									},
+									lastUpdated: Date.now(),
+								}
+							}
+						}
+
+						// Detect compaction agent message
+						if (message.agent === "compaction" && message.summary === true) {
+							dir.compaction[sessionID] = {
+								isCompacting: true,
+								isAutomatic: false, // Default to false, will be overridden by CompactionPart if it exists
+								startedAt: Date.now(),
+								messageId: message.id,
+								progress: "generating",
+							}
 						}
 						break
 					}
@@ -308,6 +434,30 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 							parts[result.index] = part
 						} else {
 							parts.splice(result.index, 0, part)
+						}
+
+						// Detect CompactionPart (type: "compaction")
+						if (part.type === "compaction") {
+							// Find sessionID by looking up the message
+							let sessionID: string | undefined
+							for (const [sid, msgs] of Object.entries(dir.messages)) {
+								if (msgs.find((m) => m.id === messageID)) {
+									sessionID = sid
+									break
+								}
+							}
+
+							if (sessionID) {
+								const isAutomatic = (part as any).auto === true
+
+								dir.compaction[sessionID] = {
+									isCompacting: true,
+									isAutomatic,
+									startedAt: Date.now(),
+									messageId: messageID,
+									progress: "generating",
+								}
+							}
 						}
 						break
 					}
@@ -583,6 +733,43 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 					messages.splice(result.index, 1)
 				}
 			})
+		},
+
+		// ═══════════════════════════════════════════════════════════════
+		// MODEL LIMITS METHODS (for context usage calculation)
+		// ═══════════════════════════════════════════════════════════════
+
+		/**
+		 * Set model limits from provider data
+		 *
+		 * Called when providers are fetched to cache model context/output limits.
+		 * These limits are used to calculate context usage when message.model is null.
+		 *
+		 * @param directory - Project directory path
+		 * @param limits - Record of modelID -> { context, output }
+		 */
+		setModelLimits: (directory, limits) => {
+			set((state) => {
+				if (!state.directories[directory]) {
+					state.directories[directory] = createEmptyDirectoryState()
+				}
+				// Merge with existing limits (don't replace)
+				state.directories[directory].modelLimits = {
+					...state.directories[directory].modelLimits,
+					...limits,
+				}
+			})
+		},
+
+		/**
+		 * Get model limits by model ID
+		 *
+		 * @param directory - Project directory path
+		 * @param modelID - Model ID (e.g., "claude-opus-4-5")
+		 * @returns Model limits or undefined if not cached
+		 */
+		getModelLimits: (directory, modelID) => {
+			return get().directories[directory]?.modelLimits[modelID]
 		},
 
 		// ═══════════════════════════════════════════════════════════════

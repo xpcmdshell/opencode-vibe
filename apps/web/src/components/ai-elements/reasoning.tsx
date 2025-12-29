@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { BrainIcon, ChevronDownIcon } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext, useEffect, useState } from "react"
-import { Streamdown, StreamdownContext } from "streamdown"
+import { Streamdown } from "streamdown"
 import { Shimmer } from "./shimmer"
 
 type ReasoningContextValue = {
@@ -163,16 +163,9 @@ export const ReasoningContent = memo(({ className, children, ...props }: Reasoni
 		)}
 		{...props}
 	>
-		<StreamdownContext.Provider
-			value={{
-				shikiTheme: ["catppuccin-latte", "catppuccin-mocha"] as const,
-				controls: true,
-				isAnimating: false,
-				mode: "streaming",
-			}}
-		>
-			<Streamdown {...props}>{children}</Streamdown>
-		</StreamdownContext.Provider>
+		<Streamdown shikiTheme={["catppuccin-latte", "catppuccin-mocha"]} {...props}>
+			{children}
+		</Streamdown>
 	</CollapsibleContent>
 ))
 

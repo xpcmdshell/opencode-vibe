@@ -65,13 +65,27 @@ function getMessageState(
 
 	if (message.role === "user") {
 		// Find assistant response to this user message
-		const response = allMessages.find(
+		// First try parentID match (if backend provides it)
+		let response = allMessages.find(
 			(m) => m.role === "assistant" && m._opencode?.parentID === message.id,
 		)
 
+		// Fallback: find the next assistant message after this user message by position
+		// This handles cases where parentID isn't set (e.g., initial page load)
 		if (!response) {
-			// No response yet - show as pending (queued)
-			return "pending"
+			const userIndex = allMessages.findIndex((m) => m.id === message.id)
+			if (userIndex !== -1 && userIndex < allMessages.length - 1) {
+				const nextMessage = allMessages[userIndex + 1]
+				if (nextMessage?.role === "assistant") {
+					response = nextMessage
+				}
+			}
+		}
+
+		if (!response) {
+			// No response yet - show as pending (queued) only if session is running
+			// If session is idle and no response, it's just an unanswered message (complete)
+			return sessionRunning ? "pending" : "complete"
 		}
 
 		// Response exists - no longer queued, either processing or complete

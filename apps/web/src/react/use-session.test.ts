@@ -69,6 +69,9 @@ describe("useSession", () => {
 					todos: {},
 					messages: {},
 					parts: {},
+					contextUsage: {},
+					compaction: {},
+					modelLimits: {},
 				},
 			},
 		})

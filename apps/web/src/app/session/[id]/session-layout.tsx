@@ -13,6 +13,8 @@ import { SessionMessages } from "./session-messages"
 import { PromptInput } from "@/components/prompt"
 import { OpenCodeLogo } from "@/components/opencode-logo"
 import { DebugPanel } from "./debug-panel"
+import { ContextUsageBar } from "./context-usage"
+import { CompactionIndicator } from "./compaction-indicator"
 import type { Session } from "@opencode-ai/sdk/client"
 import type { Prompt } from "@/types/prompt"
 
@@ -179,6 +181,8 @@ function SessionContent({
 							<div className="flex items-center gap-4">
 								{/* Show message count from useMessages hook */}
 								<div className="text-xs text-muted-foreground">{storeMessages.length} messages</div>
+								{/* Context usage bar with progress indicator */}
+								<ContextUsageBar sessionId={sessionId} />
 								<NewSessionButton directory={directory} />
 							</div>
 						</div>
@@ -204,15 +208,21 @@ function SessionContent({
 				</header>
 
 				{/* Messages container - full width for scroll, content centered */}
-				<main className="flex-1 min-h-0">
-					<SessionMessages
-						sessionId={sessionId}
-						directory={directory}
-						initialMessages={initialMessages}
-						initialStoreMessages={initialStoreMessages}
-						initialStoreParts={initialStoreParts}
-						status={isLoading ? "submitted" : undefined}
-					/>
+				<main className="flex-1 min-h-0 flex flex-col">
+					{/* Messages area */}
+					<div className="flex-1 min-h-0">
+						<SessionMessages
+							sessionId={sessionId}
+							directory={directory}
+							initialMessages={initialMessages}
+							initialStoreMessages={initialStoreMessages}
+							initialStoreParts={initialStoreParts}
+							status={isLoading ? "submitted" : undefined}
+						/>
+					</div>
+
+					{/* Compaction indicator - shows at bottom like an hr when compacting */}
+					<CompactionIndicator sessionId={sessionId} />
 				</main>
 
 				{/* Prompt input - fixed at bottom */}

@@ -47,6 +47,9 @@ describe("SessionLayout Hook Integration", () => {
 					todos: {},
 					messages: {},
 					parts: {},
+					contextUsage: {},
+					compaction: {},
+					modelLimits: {},
 				},
 			},
 		})

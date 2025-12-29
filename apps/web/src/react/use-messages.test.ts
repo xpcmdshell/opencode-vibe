@@ -74,6 +74,9 @@ describe("useMessages", () => {
 					todos: {},
 					messages: {},
 					parts: {},
+					contextUsage: {},
+					compaction: {},
+					modelLimits: {},
 				},
 			},
 		})

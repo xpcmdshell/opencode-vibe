@@ -58,6 +58,9 @@ describe("useMessagesWithParts", () => {
 					todos: {},
 					messages: {},
 					parts: {},
+					contextUsage: {},
+					compaction: {},
+					modelLimits: {},
 				},
 			},
 		})

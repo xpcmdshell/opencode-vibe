@@ -389,6 +389,32 @@ pre code {
   background: #11111b !important; /* Mocha Crust */
 }
 
+/* 
+ * Fix Shiki dark mode colors in Streamdown
+ * Streamdown uses Tailwind v4 arbitrary property syntax: dark:text-(--shiki-dark)!
+ * This doesn't compile correctly, so we override with plain CSS
+ */
+.dark [data-streamdown="code-block-body"] span[style] {
+  color: var(--shiki-dark) !important;
+}
+
+.dark [data-streamdown="code-block-body"] pre {
+  background-color: transparent !important;
+}
+
+/* 
+ * Fix Shiki dark mode colors in Streamdown
+ * Streamdown uses Tailwind v4 arbitrary property syntax: dark:text-(--shiki-dark)!
+ * This doesn't compile correctly, so we override with plain CSS
+ */
+.dark [data-streamdown="code-block-body"] span[style*="--shiki-dark"] {
+  color: var(--shiki-dark) !important;
+}
+
+.dark [data-streamdown="code-block-body"] span[style*="--shiki-dark-bg"] {
+  background-color: var(--shiki-dark-bg) !important;
+}
+
 /* Scrollbar for code blocks - match theme */
 pre::-webkit-scrollbar {
   height: 8px;

@@ -2039,4 +2039,386 @@ describe("OpencodeStore", () => {
 			expect(dir.parts["msg-1"]).toBeUndefined() // msg-1 has no parts
 		})
 	})
+
+	// ═══════════════════════════════════════════════════════════════
+	// CONTEXT USAGE & COMPACTION STATE
+	// ═══════════════════════════════════════════════════════════════
+	describe("Context Usage State", () => {
+		test("initializes with empty contextUsage", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.contextUsage).toEqual({})
+		})
+
+		test("extracts token usage from message.updated event", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const message: any = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "assistant",
+				tokens: {
+					input: 1000,
+					output: 500,
+					reasoning: 200,
+					cache: {
+						read: 300,
+						write: 100,
+					},
+				},
+				model: {
+					name: "claude-3-5-sonnet-20241022",
+					limits: {
+						context: 200000,
+						output: 8192,
+					},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const usage = dir.contextUsage["session-1"]
+
+			expect(usage).toBeDefined()
+			expect(usage.used).toBe(1800) // input (1000) + cache.read (300) + output (500)
+			expect(usage.limit).toBe(200000)
+			expect(usage.percentage).toBe(1) // Math.round((1800 / (200000 - 8192)) * 100)
+			expect(usage.isNearLimit).toBe(false) // < 80%
+			expect(usage.tokens.input).toBe(1000)
+			expect(usage.tokens.output).toBe(500)
+			expect(usage.tokens.cached).toBe(300)
+		})
+
+		test("detects near-limit context usage (>= 80%)", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const message: any = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "assistant",
+				tokens: {
+					input: 150000,
+					output: 2000,
+					reasoning: 0,
+					cache: {
+						read: 5000,
+						write: 0,
+					},
+				},
+				model: {
+					name: "claude-3-5-sonnet-20241022",
+					limits: {
+						context: 200000,
+						output: 8192,
+					},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const usage = dir.contextUsage["session-1"]
+
+			expect(usage.isNearLimit).toBe(true) // >= 80%
+			expect(usage.percentage).toBeGreaterThanOrEqual(80)
+		})
+
+		test("caches model limits from first message", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const message: any = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "assistant",
+				tokens: {
+					input: 100,
+					output: 50,
+					reasoning: 0,
+					cache: { read: 0, write: 0 },
+				},
+				model: {
+					name: "claude-3-5-sonnet-20241022",
+					limits: {
+						context: 200000,
+						output: 8192,
+					},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.modelLimits["claude-3-5-sonnet-20241022"]).toEqual({
+				context: 200000,
+				output: 8192,
+			})
+		})
+
+		test("uses cached model limits when message.model is null", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Pre-cache model limits (as provider.tsx would do on bootstrap)
+			store.setModelLimits(TEST_DIRECTORY, {
+				"claude-opus-4-5": {
+					context: 200000,
+					output: 32000,
+				},
+			})
+
+			// Message with tokens but model: null (as backend actually sends)
+			const message: any = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "assistant",
+				modelID: "claude-opus-4-5", // Backend sends modelID
+				model: null, // But model is null
+				tokens: {
+					input: 1000,
+					output: 500,
+					reasoning: 0,
+					cache: {
+						read: 146000,
+						write: 0,
+					},
+				},
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const usage = dir.contextUsage["session-1"]
+
+			// Should have calculated context usage using cached limits
+			expect(usage).toBeDefined()
+			expect(usage.used).toBe(147500) // input (1000) + cache.read (146000) + output (500)
+			expect(usage.limit).toBe(200000)
+			// usableContext = 200000 - min(32000, 32000) = 168000
+			// percentage = round((147500 / 168000) * 100) = 88%
+			expect(usage.percentage).toBe(88)
+			expect(usage.isNearLimit).toBe(true) // >= 80%
+		})
+
+		test("setModelLimits and getModelLimits work correctly", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Set model limits
+			store.setModelLimits(TEST_DIRECTORY, {
+				"model-a": { context: 100000, output: 4096 },
+				"model-b": { context: 200000, output: 8192 },
+			})
+
+			// Get model limits
+			expect(store.getModelLimits(TEST_DIRECTORY, "model-a")).toEqual({
+				context: 100000,
+				output: 4096,
+			})
+			expect(store.getModelLimits(TEST_DIRECTORY, "model-b")).toEqual({
+				context: 200000,
+				output: 8192,
+			})
+			expect(store.getModelLimits(TEST_DIRECTORY, "model-c")).toBeUndefined()
+		})
+
+		test("setModelLimits merges with existing limits", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Set initial limits
+			store.setModelLimits(TEST_DIRECTORY, {
+				"model-a": { context: 100000, output: 4096 },
+			})
+
+			// Set more limits (should merge, not replace)
+			store.setModelLimits(TEST_DIRECTORY, {
+				"model-b": { context: 200000, output: 8192 },
+			})
+
+			// Both should exist
+			expect(store.getModelLimits(TEST_DIRECTORY, "model-a")).toEqual({
+				context: 100000,
+				output: 4096,
+			})
+			expect(store.getModelLimits(TEST_DIRECTORY, "model-b")).toEqual({
+				context: 200000,
+				output: 8192,
+			})
+		})
+	})
+
+	describe("Compaction State", () => {
+		test("initializes with empty compaction state", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.compaction).toEqual({})
+		})
+
+		test("detects compaction start from CompactionPart (automatic)", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const message: any = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "user",
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
+			})
+
+			const part: any = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "compaction",
+				content: "",
+				auto: true,
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const compaction = dir.compaction["session-1"]
+
+			expect(compaction).toBeDefined()
+			expect(compaction.isCompacting).toBe(true)
+			expect(compaction.isAutomatic).toBe(true)
+			expect(compaction.messageId).toBe("msg-1")
+			expect(compaction.progress).toBe("generating")
+		})
+
+		test("detects compaction start from CompactionPart (manual)", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const message: any = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "user",
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
+			})
+
+			const part: any = {
+				id: "part-1",
+				messageID: "msg-1",
+				type: "compaction",
+				content: "",
+				auto: false,
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.part.updated",
+				properties: { part },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const compaction = dir.compaction["session-1"]
+
+			expect(compaction.isAutomatic).toBe(false)
+		})
+
+		test("detects compaction agent message (summary: true)", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			const message: any = {
+				id: "msg-2",
+				sessionID: "session-1",
+				role: "assistant",
+				agent: "compaction",
+				summary: true,
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
+			})
+
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const compaction = dir.compaction["session-1"]
+
+			expect(compaction).toBeDefined()
+			expect(compaction.isCompacting).toBe(true)
+			expect(compaction.progress).toBe("generating")
+			expect(compaction.messageId).toBe("msg-2")
+		})
+
+		test("clears compaction state on session.compacted event", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Set up compaction state first
+			const message: any = {
+				id: "msg-1",
+				sessionID: "session-1",
+				role: "assistant",
+				agent: "compaction",
+				summary: true,
+			}
+
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "message.updated",
+				properties: { info: message },
+			})
+
+			// Verify compaction state exists
+			let dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.compaction["session-1"]).toBeDefined()
+			expect(dir.compaction["session-1"].isCompacting).toBe(true)
+
+			// Trigger session.compacted event
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.compacted",
+				properties: { sessionID: "session-1" },
+			})
+
+			// Verify compaction state cleared
+			dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.compaction["session-1"]).toBeUndefined()
+		})
+
+		test("session.compacted is no-op when no compaction state exists", () => {
+			const store = useOpencodeStore.getState()
+			store.initDirectory(TEST_DIRECTORY)
+
+			// Trigger without setting up compaction state first
+			store.handleEvent(TEST_DIRECTORY, {
+				type: "session.compacted",
+				properties: { sessionID: "session-1" },
+			})
+
+			// Should not throw, just be no-op
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			expect(dir.compaction["session-1"]).toBeUndefined()
+		})
+	})
 })

@@ -145,6 +145,40 @@ function OpenCodeProviderInner({ url, directory, children }: OpenCodeProviderPro
 				error instanceof Error ? error.message : error,
 			)
 		}
+
+		// Load providers to cache model limits (for context usage calculation)
+		try {
+			const providerResponse = await client.provider.list()
+			if (providerResponse.data?.all) {
+				const modelLimits: Record<string, { context: number; output: number }> = {}
+
+				for (const provider of providerResponse.data.all) {
+					if (provider.models) {
+						for (const [modelID, model] of Object.entries(provider.models)) {
+							// Backend sends 'limit' not 'limits'
+							const limit = (model as any).limit
+							if (limit?.context && limit?.output) {
+								modelLimits[modelID] = {
+									context: limit.context,
+									output: limit.output,
+								}
+							}
+						}
+					}
+				}
+
+				// Cache model limits in store
+				if (Object.keys(modelLimits).length > 0) {
+					store.setModelLimits(directory, modelLimits)
+				}
+			}
+		} catch (error) {
+			// Provider fetch failed - not critical, context usage will be unavailable
+			console.warn(
+				"[OpenCode] Failed to load providers:",
+				error instanceof Error ? error.message : error,
+			)
+		}
 	}, [directory])
 
 	// Keep ref updated for stable access in callbacks

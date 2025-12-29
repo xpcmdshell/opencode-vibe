@@ -8,7 +8,7 @@ import type { FileUIPart, UIMessage } from "ai"
 import { ChevronLeftIcon, ChevronRightIcon, PaperclipIcon, XIcon } from "lucide-react"
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react"
 import React, { createContext, memo, useContext, useEffect, useMemo, useState } from "react"
-import { Streamdown, StreamdownContext } from "streamdown"
+import { Streamdown } from "streamdown"
 import type { Root, Element } from "hast"
 import { visit } from "unist-util-visit"
 
@@ -864,21 +864,13 @@ export const MessageResponse = memo(
 		)
 
 		return (
-			<StreamdownContext.Provider
-				value={{
-					shikiTheme: ["catppuccin-latte", "catppuccin-mocha"] as const,
-					controls: true,
-					isAnimating: false,
-					mode: "streaming",
-				}}
-			>
-				<Streamdown
-					className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
-					components={componentsWithFallback}
-					rehypePlugins={[rehypeSanitizeUnknownTags]}
-					{...props}
-				/>
-			</StreamdownContext.Provider>
+			<Streamdown
+				{...props}
+				className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+				components={componentsWithFallback}
+				rehypePlugins={[rehypeSanitizeUnknownTags]}
+				shikiTheme={["catppuccin-latte", "catppuccin-mocha"]}
+			/>
 		)
 	},
 	(prevProps, nextProps) => prevProps.children === nextProps.children,
