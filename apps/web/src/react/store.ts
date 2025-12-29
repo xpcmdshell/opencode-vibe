@@ -644,7 +644,9 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 
 				const result = Binary.search(dir.sessions, id, (s) => s.id)
 				if (result.found) {
-					updater(dir.sessions[result.index])
+					const session = dir.sessions[result.index]
+					if (!session) return
+					updater(session)
 				}
 			})
 		},
@@ -685,6 +687,7 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 					state.directories[directory] = createEmptyDirectoryState()
 				}
 				const dir = state.directories[directory]
+				if (!dir) return
 
 				// Initialize messages array if needed
 				if (!dir.messages[message.sessionID]) {
@@ -692,6 +695,7 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 				}
 
 				const messages = dir.messages[message.sessionID]
+				if (!messages) return
 				const result = Binary.search(messages, message.id, (m) => m.id)
 				if (!result.found) {
 					messages.splice(result.index, 0, message)
@@ -712,7 +716,9 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 
 				const result = Binary.search(messages, messageID, (m) => m.id)
 				if (result.found) {
-					updater(messages[result.index])
+					const message = messages[result.index]
+					if (!message) return
+					updater(message)
 				}
 			})
 		},
@@ -852,6 +858,7 @@ export function usePartSummary(
 		if (!result.found) return undefined
 
 		const part = parts[result.index]
+		if (!part) return undefined
 		if (part.type !== "tool") {
 			return undefined
 		}

@@ -108,7 +108,7 @@ describe("Binary.insert", () => {
 		const result = Binary.insert(array, { id: "c" }, (item) => item.id)
 
 		// Should insert at leftmost position for 'c'
-		expect(result[1].id).toBe("c")
+		expect(result[1]!.id).toBe("c")
 		expect(result.length).toBe(4)
 	})
 

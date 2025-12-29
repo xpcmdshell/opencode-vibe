@@ -68,14 +68,14 @@ describe("SessionMessages Hydration Integration", () => {
 		store.hydrateMessages(TEST_DIR, TEST_SESSION_ID, initialStoreMessages, initialStoreParts)
 
 		// Verify hydrateMessages populated the store
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		expect(dir.messages[TEST_SESSION_ID]).toHaveLength(2)
-		expect(dir.messages[TEST_SESSION_ID][0].id).toBe("msg-1")
-		expect(dir.messages[TEST_SESSION_ID][1].id).toBe("msg-2")
+		expect(dir.messages[TEST_SESSION_ID]![0]!.id).toBe("msg-1")
+		expect(dir.messages[TEST_SESSION_ID]![1]!.id).toBe("msg-2")
 
 		expect(dir.parts["msg-2"]).toHaveLength(2)
-		expect(dir.parts["msg-2"][0].id).toBe("part-1")
-		expect(dir.parts["msg-2"][1].id).toBe("part-2")
+		expect(dir.parts["msg-2"]![0]!.id).toBe("part-1")
+		expect(dir.parts["msg-2"]![1]!.id).toBe("part-2")
 	})
 
 	test("hydrateMessages is called exactly once on mount", () => {
@@ -111,7 +111,7 @@ describe("SessionMessages Hydration Integration", () => {
 		expect(callCount).toBe(1)
 
 		// Verify data was hydrated
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		expect(dir.messages[TEST_SESSION_ID]).toHaveLength(1)
 	})
 
@@ -167,13 +167,13 @@ describe("SessionMessages Hydration Integration", () => {
 		} as any)
 
 		// Verify NO duplicates - still only 1 message and 1 part
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		expect(dir.messages[TEST_SESSION_ID]).toHaveLength(1)
 		expect(dir.parts["msg-1"]).toHaveLength(1)
 
 		// Verify data was updated (not duplicated)
-		expect(dir.messages[TEST_SESSION_ID][0].time?.completed).toBe(1500)
-		expect(dir.parts["msg-1"][0].content).toBe("Updated via SSE")
+		expect(dir.messages[TEST_SESSION_ID]![0]!.time?.completed).toBe(1500)
+		expect(dir.parts["msg-1"]![0]!.content).toBe("Updated via SSE")
 	})
 
 	test("SSE adds NEW messages and parts after hydration", () => {
@@ -224,14 +224,14 @@ describe("SessionMessages Hydration Integration", () => {
 		} as any)
 
 		// Verify new messages and parts were added
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		expect(dir.messages[TEST_SESSION_ID]).toHaveLength(2)
-		expect(dir.messages[TEST_SESSION_ID][0].id).toBe("msg-1")
-		expect(dir.messages[TEST_SESSION_ID][1].id).toBe("msg-2")
+		expect(dir.messages[TEST_SESSION_ID]![0]!.id).toBe("msg-1")
+		expect(dir.messages[TEST_SESSION_ID]![1]!.id).toBe("msg-2")
 
 		expect(dir.parts["msg-2"]).toHaveLength(1)
-		expect(dir.parts["msg-2"][0].id).toBe("part-1")
-		expect(dir.parts["msg-2"][0].content).toBe("New part")
+		expect(dir.parts["msg-2"]![0]!.id).toBe("part-1")
+		expect(dir.parts["msg-2"]![0]!.content).toBe("New part")
 	})
 
 	test("hydrateMessages with directory fallback", () => {
@@ -253,7 +253,7 @@ describe("SessionMessages Hydration Integration", () => {
 		store.hydrateMessages(fallbackDir, TEST_SESSION_ID, initialStoreMessages, {})
 
 		// Verify data hydrated in fallback directory
-		const dir = useOpencodeStore.getState().directories[fallbackDir]
+		const dir = useOpencodeStore.getState().directories[fallbackDir]!
 		expect(dir).toBeDefined()
 		expect(dir.messages[TEST_SESSION_ID]).toHaveLength(1)
 	})
@@ -286,9 +286,9 @@ describe("SessionMessages Hydration Integration", () => {
 		}).not.toThrow()
 
 		// Verify data is accessible for rendering
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
-		const messages = dir.messages[TEST_SESSION_ID]
-		const parts = dir.parts["msg-2"]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
+		const messages = dir.messages[TEST_SESSION_ID]!
+		const parts = dir.parts["msg-2"]!
 
 		expect(messages).toBeDefined()
 		expect(parts).toBeDefined()
@@ -302,7 +302,7 @@ describe("SessionMessages Hydration Integration", () => {
 		// SessionMessages might receive empty arrays on initial load
 		store.hydrateMessages(TEST_DIR, TEST_SESSION_ID, [], {})
 
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		expect(dir.messages[TEST_SESSION_ID]).toEqual([])
 		expect(Object.keys(dir.parts)).toHaveLength(0)
 	})
@@ -329,11 +329,11 @@ describe("SessionMessages Hydration Integration", () => {
 
 		store.hydrateMessages(TEST_DIR, TEST_SESSION_ID, initialStoreMessages, initialStoreParts)
 
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		expect(dir.parts["msg-1"]).toHaveLength(3)
-		expect(dir.parts["msg-1"][0].id).toBe("part-1")
-		expect(dir.parts["msg-1"][1].id).toBe("part-2")
-		expect(dir.parts["msg-1"][2].id).toBe("part-3")
+		expect(dir.parts["msg-1"]![0]!.id).toBe("part-1")
+		expect(dir.parts["msg-1"]![1]!.id).toBe("part-2")
+		expect(dir.parts["msg-1"]![2]!.id).toBe("part-3")
 	})
 
 	test("hydration auto-creates directory if not initialized", () => {
@@ -354,7 +354,7 @@ describe("SessionMessages Hydration Integration", () => {
 		// Should auto-create directory
 		store.hydrateMessages(TEST_DIR, TEST_SESSION_ID, initialStoreMessages, {})
 
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		expect(dir).toBeDefined()
 		expect(dir.messages[TEST_SESSION_ID]).toHaveLength(1)
 	})
@@ -404,9 +404,9 @@ describe("SessionMessages Hydration Edge Cases", () => {
 
 		store.hydrateMessages(TEST_DIR, TEST_SESSION_ID, [], initialStoreParts)
 
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		expect(dir.parts["msg-999"]).toHaveLength(1)
-		expect(dir.parts["msg-999"][0].id).toBe("part-1")
+		expect(dir.parts["msg-999"]![0]!.id).toBe("part-1")
 	})
 
 	test("unsorted messages are sorted during hydration", () => {
@@ -436,11 +436,11 @@ describe("SessionMessages Hydration Edge Cases", () => {
 
 		store.hydrateMessages(TEST_DIR, TEST_SESSION_ID, initialStoreMessages, {})
 
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		// Verify sorted by ID (lexicographic)
-		expect(dir.messages[TEST_SESSION_ID][0].id).toBe("msg-a")
-		expect(dir.messages[TEST_SESSION_ID][1].id).toBe("msg-b")
-		expect(dir.messages[TEST_SESSION_ID][2].id).toBe("msg-c")
+		expect(dir.messages[TEST_SESSION_ID]![0]!.id).toBe("msg-a")
+		expect(dir.messages[TEST_SESSION_ID]![1]!.id).toBe("msg-b")
+		expect(dir.messages[TEST_SESSION_ID]![2]!.id).toBe("msg-c")
 	})
 
 	test("unsorted parts are sorted during hydration", () => {
@@ -456,10 +456,10 @@ describe("SessionMessages Hydration Edge Cases", () => {
 
 		store.hydrateMessages(TEST_DIR, TEST_SESSION_ID, [], initialStoreParts)
 
-		const dir = useOpencodeStore.getState().directories[TEST_DIR]
+		const dir = useOpencodeStore.getState().directories[TEST_DIR]!
 		// Verify sorted by ID (lexicographic)
-		expect(dir.parts["msg-1"][0].id).toBe("part-a")
-		expect(dir.parts["msg-1"][1].id).toBe("part-m")
-		expect(dir.parts["msg-1"][2].id).toBe("part-z")
+		expect(dir.parts["msg-1"]![0]!.id).toBe("part-a")
+		expect(dir.parts["msg-1"]![1]!.id).toBe("part-m")
+		expect(dir.parts["msg-1"]![2]!.id).toBe("part-z")
 	})
 })

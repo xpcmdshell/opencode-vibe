@@ -4,8 +4,8 @@
  */
 import { describe, it, expect } from "bun:test"
 import { Schema } from "effect"
-import { createOpencodeRoute } from "./builder.js"
-import type { Route } from "./types.js"
+import { createOpencodeRoute } from "./builder"
+import type { Route } from "./types"
 
 describe("createOpencodeRoute", () => {
 	it("returns a function that creates route builders", () => {

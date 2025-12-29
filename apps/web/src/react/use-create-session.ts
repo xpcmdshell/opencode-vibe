@@ -6,7 +6,7 @@
  * Usage:
  * ```tsx
  * function NewSessionButton() {
- *   const { createSession, isCreating, error } = useCreateSession("/path/to/project")
+ *   const { createSession, isCreating, error } = useCreateSession()
  *
  *   const handleCreate = async () => {
  *     const session = await createSession("My new session")
@@ -26,7 +26,7 @@
 
 import { useCallback, useState } from "react"
 import type { Session } from "@opencode-ai/sdk/client"
-import { createClient } from "../core/client"
+import { useOpenCode } from "./provider"
 
 interface UseCreateSessionReturn {
 	createSession: (title?: string) => Promise<Session | null>
@@ -37,13 +37,15 @@ interface UseCreateSessionReturn {
 /**
  * Create a new session with optional title
  *
- * @param directory - Required directory to scope the session to a specific project
+ * Uses router caller from OpenCodeProvider context to call session.create route.
+ * Returns unwrapped Session (no .data access needed).
+ *
  * @returns Function to create session, loading state, and error state
  *
  * @example Basic usage
  * ```tsx
  * function NewSessionButton() {
- *   const { createSession, isCreating, error } = useCreateSession("/path/to/project")
+ *   const { createSession, isCreating, error } = useCreateSession()
  *
  *   const handleCreate = async () => {
  *     const session = await createSession()
@@ -60,7 +62,7 @@ interface UseCreateSessionReturn {
  * ```tsx
  * function NewSessionForm() {
  *   const [title, setTitle] = useState("")
- *   const { createSession, isCreating, error } = useCreateSession(projectDir)
+ *   const { createSession, isCreating, error } = useCreateSession()
  *
  *   const handleSubmit = async (e: FormEvent) => {
  *     e.preventDefault()
@@ -80,7 +82,8 @@ interface UseCreateSessionReturn {
  * }
  * ```
  */
-export function useCreateSession(directory: string): UseCreateSessionReturn {
+export function useCreateSession(): UseCreateSessionReturn {
+	const { caller } = useOpenCode()
 	const [isCreating, setIsCreating] = useState(false)
 	const [error, setError] = useState<Error | null>(null)
 
@@ -90,22 +93,12 @@ export function useCreateSession(directory: string): UseCreateSessionReturn {
 				setIsCreating(true)
 				setError(null)
 
-				const client = createClient(directory)
-				const result = await client.session.create({
-					body: { title },
-				})
+				// Call session.create via router
+				// Input: { title?: string }
+				// Returns: Session (already unwrapped, no .data access needed)
+				const result = await caller<Session>("session.create", title ? { title } : {})
 
-				// The SDK returns { data: Session, error: undefined } on success
-				if (result.data) {
-					return result.data
-				}
-				if (result.error) {
-					// BadRequestError doesn't have message property
-					// Use generic error message for now
-					throw new Error("Failed to create session")
-				}
-
-				return null
+				return result
 			} catch (err) {
 				const errorObj = err instanceof Error ? err : new Error(String(err))
 				setError(errorObj)
@@ -114,7 +107,7 @@ export function useCreateSession(directory: string): UseCreateSessionReturn {
 				setIsCreating(false)
 			}
 		},
-		[directory],
+		[caller],
 	)
 
 	return { createSession, isCreating, error }

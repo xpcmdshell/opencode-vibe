@@ -9,13 +9,13 @@
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Cause from "effect/Cause"
-import type { Router } from "../router.js"
-import type { Route } from "../types.js"
-import type { OpencodeClient } from "../../client.js"
-import { executeRoute } from "../executor.js"
-import { executeStreamHandler, streamToReadable, streamToAsyncIterable } from "../stream.js"
-import { RouteNotFoundError } from "../router.js"
-import { ValidationError, TimeoutError, HandlerError, MiddlewareError } from "../errors.js"
+import type { Router } from "../router"
+import type { Route } from "../types"
+import type { OpencodeClient } from "../../client"
+import { executeRoute } from "../executor"
+import { executeStreamHandler, streamToReadable, streamToAsyncIterable } from "../stream"
+import { RouteNotFoundError } from "../router"
+import { ValidationError, TimeoutError, HandlerError, MiddlewareError } from "../errors"
 
 /**
  * Options for createNextHandler

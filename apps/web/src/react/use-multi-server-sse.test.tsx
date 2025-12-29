@@ -55,7 +55,7 @@ describe("useMultiServerSSE", () => {
 
 		expect(onEventMock).toHaveBeenCalled()
 		expect(onEventMock.mock.calls.length).toBe(1)
-		expect(typeof onEventMock.mock.calls[0][0]).toBe("function")
+		expect(typeof onEventMock.mock.calls[0]![0]).toBe("function")
 	})
 
 	test("initializes directory when event arrives", async () => {

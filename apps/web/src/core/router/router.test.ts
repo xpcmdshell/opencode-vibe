@@ -3,8 +3,8 @@
  * ADR 002 Layer 3 - Router factory and path resolution
  */
 import { describe, it, expect } from "bun:test"
-import { createRouter, RouteNotFoundError } from "./router.js"
-import { createOpencodeRoute } from "./builder.js"
+import { createRouter, RouteNotFoundError } from "./router"
+import { createOpencodeRoute } from "./builder"
 import { Schema } from "effect"
 
 describe("createRouter", () => {

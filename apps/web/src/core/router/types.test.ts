@@ -11,7 +11,7 @@ import type {
 	HandlerContext,
 	HandlerFn,
 	RouteBuilder,
-} from "./types.js"
+} from "./types"
 import type { Schema } from "effect"
 
 describe("Duration type", () => {

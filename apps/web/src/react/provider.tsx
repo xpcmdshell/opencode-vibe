@@ -20,11 +20,20 @@
 
 "use client"
 
-import { createContext, useContext, useCallback, useEffect, useRef, type ReactNode } from "react"
+import {
+	createContext,
+	useContext,
+	useCallback,
+	useEffect,
+	useRef,
+	useMemo,
+	type ReactNode,
+} from "react"
 import { toast } from "sonner"
 import { SSEProvider, useSSE } from "./use-sse"
 import { useOpencodeStore } from "./store"
 import { createClient } from "@/core/client"
+import { createRouter, createCaller, createRoutes, type Caller } from "@/core/router"
 import type { GlobalEvent, Session as SDKSession } from "@opencode-ai/sdk/client"
 
 /**
@@ -39,6 +48,8 @@ export interface OpenCodeContextValue {
 	ready: boolean
 	/** Sync a specific session (load messages, parts, etc) */
 	sync: (sessionID: string) => Promise<void>
+	/** Direct caller for invoking routes */
+	caller: Caller
 }
 
 const OpenCodeContext = createContext<OpenCodeContextValue | null>(null)
@@ -80,7 +91,13 @@ export function OpenCodeProvider({ url, directory, children }: OpenCodeProviderP
  * Inner provider that uses SSE context (must be inside SSEProvider)
  */
 function OpenCodeProviderInner({ url, directory, children }: OpenCodeProviderProps) {
-	const clientRef = useRef(createClient(directory))
+	// Create client and caller for this directory (stable across renders)
+	const client = useMemo(() => createClient(directory), [directory])
+	const caller = useMemo(() => {
+		const router = createRouter(createRoutes())
+		return createCaller(router, { sdk: client })
+	}, [client])
+
 	const bootstrapCalledRef = useRef(false)
 	const bootstrapRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
@@ -96,7 +113,6 @@ function OpenCodeProviderInner({ url, directory, children }: OpenCodeProviderPro
 	 * and SSE will provide updates when connection is restored.
 	 */
 	const bootstrap = useCallback(async () => {
-		const client = clientRef.current
 		const store = getStoreActions()
 
 		// Load sessions first (most important)
@@ -179,7 +195,7 @@ function OpenCodeProviderInner({ url, directory, children }: OpenCodeProviderPro
 				error instanceof Error ? error.message : error,
 			)
 		}
-	}, [directory])
+	}, [directory, client])
 
 	// Keep ref updated for stable access in callbacks
 	bootstrapRef.current = bootstrap
@@ -192,7 +208,6 @@ function OpenCodeProviderInner({ url, directory, children }: OpenCodeProviderPro
 	 */
 	const sync = useCallback(
 		async (sessionID: string) => {
-			const client = clientRef.current
 			const store = getStoreActions()
 
 			// Fetch all data in parallel, handling failures individually
@@ -330,6 +345,7 @@ function OpenCodeProviderInner({ url, directory, children }: OpenCodeProviderPro
 		directory,
 		ready,
 		sync,
+		caller,
 	}
 
 	return <OpenCodeContext.Provider value={value}>{children}</OpenCodeContext.Provider>

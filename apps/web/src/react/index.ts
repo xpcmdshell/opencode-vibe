@@ -28,7 +28,6 @@ export {
 export { useSessionStatus, type SessionStatus } from "./use-session-status"
 export {
 	useProviders,
-	type UseProvidersOptions,
 	type UseProvidersReturn,
 	type Provider,
 	type Model,

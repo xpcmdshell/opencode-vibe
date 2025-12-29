@@ -3,7 +3,7 @@
  * ADR 002 - Declarative route configuration with Effect-powered execution
  */
 import * as Schema from "effect/Schema"
-import { createOpencodeRoute } from "./builder.js"
+import { createOpencodeRoute } from "./builder"
 
 /**
  * Message type from OpenCode API
@@ -28,6 +28,54 @@ const MessagesListInput = Schema.Struct({
 		default: () => 20,
 	}),
 })
+
+/**
+ * Input schema for session.get route
+ * - id: required string
+ */
+const SessionGetInput = Schema.Struct({
+	id: Schema.String,
+})
+
+/**
+ * Input schema for session.list route
+ * No parameters required
+ */
+const SessionListInput = Schema.Struct({})
+
+/**
+ * Input schema for session.create route
+ * - title: optional string
+ */
+const SessionCreateInput = Schema.Struct({
+	title: Schema.optional(Schema.String),
+})
+
+/**
+ * Input schema for session.delete route
+ * - id: required string
+ */
+const SessionDeleteInput = Schema.Struct({
+	id: Schema.String,
+})
+
+/**
+ * Input schema for session.promptAsync route
+ * - sessionId: required string
+ * - parts: required array of Part objects
+ * - model: optional ModelSelection object
+ */
+const SessionPromptAsyncInput = Schema.Struct({
+	sessionId: Schema.String,
+	parts: Schema.Array(Schema.Unknown),
+	model: Schema.optional(Schema.Unknown),
+})
+
+/**
+ * Input schema for provider.list route
+ * No parameters required
+ */
+const ProviderListInput = Schema.Struct({})
 
 /**
  * Create route definitions
@@ -65,6 +113,100 @@ export function createRoutes() {
 						query: { limit: input.limit },
 					})
 					return response.data ?? []
+				}),
+		},
+
+		session: {
+			/**
+			 * Get a session by ID
+			 *
+			 * @param id - Session ID
+			 * @returns Session object
+			 */
+			get: o({ timeout: "30s" })
+				.input(SessionGetInput)
+				.handler(async ({ input, sdk }) => {
+					const response = await sdk.session.get({
+						path: { id: input.id },
+					})
+					return response.data
+				}),
+
+			/**
+			 * List all sessions
+			 *
+			 * @returns Array of sessions
+			 */
+			list: o({ timeout: "10s" })
+				.input(SessionListInput)
+				.handler(async ({ sdk }) => {
+					const response = await sdk.session.list()
+					return response.data ?? []
+				}),
+
+			/**
+			 * Create a new session
+			 *
+			 * @param title - Optional session title
+			 * @returns Created session object
+			 */
+			create: o({ timeout: "30s" })
+				.input(SessionCreateInput)
+				.handler(async ({ input, sdk }) => {
+					const response = await sdk.session.create({
+						body: input.title ? { title: input.title } : {},
+					})
+					return response.data
+				}),
+
+			/**
+			 * Delete a session by ID
+			 *
+			 * @param id - Session ID to delete
+			 * @returns void
+			 */
+			delete: o({ timeout: "10s" })
+				.input(SessionDeleteInput)
+				.handler(async ({ input, sdk }) => {
+					const response = await sdk.session.delete({
+						path: { id: input.id },
+					})
+					return response.data
+				}),
+
+			/**
+			 * Send a prompt to a session asynchronously (fire-and-forget)
+			 *
+			 * @param sessionId - Session ID
+			 * @param parts - Array of message parts
+			 * @param model - Optional model selection
+			 * @returns void (fire-and-forget)
+			 */
+			promptAsync: o({ timeout: "5m" })
+				.input(SessionPromptAsyncInput)
+				.handler(async ({ input, sdk }) => {
+					const response = await sdk.session.promptAsync({
+						path: { id: input.sessionId },
+						body: {
+							parts: input.parts as any,
+							...(input.model ? { model: input.model as any } : {}),
+						},
+					})
+					return response.data
+				}),
+		},
+
+		provider: {
+			/**
+			 * List all providers with connection status
+			 *
+			 * @returns Object with all providers, default provider, and connected provider IDs
+			 */
+			list: o({ timeout: "10s" })
+				.input(ProviderListInput)
+				.handler(async ({ sdk }) => {
+					const response = await sdk.config.providers()
+					return response.data
 				}),
 		},
 	}

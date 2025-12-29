@@ -80,7 +80,7 @@ describe("useCompactionState", () => {
 			useOpencodeStore.setState({
 				directories: {
 					[TEST_DIR]: {
-						...useOpencodeStore.getState().directories[TEST_DIR],
+						...useOpencodeStore.getState().directories[TEST_DIR]!,
 						compaction: {
 							[sessionId]: {
 								isCompacting: true,
@@ -114,7 +114,7 @@ describe("useCompactionState", () => {
 			useOpencodeStore.setState({
 				directories: {
 					[TEST_DIR]: {
-						...useOpencodeStore.getState().directories[TEST_DIR],
+						...useOpencodeStore.getState().directories[TEST_DIR]!,
 						compaction: {
 							[sessionId]: {
 								isCompacting: true,
@@ -138,7 +138,7 @@ describe("useCompactionState", () => {
 			useOpencodeStore.setState({
 				directories: {
 					[TEST_DIR]: {
-						...useOpencodeStore.getState().directories[TEST_DIR],
+						...useOpencodeStore.getState().directories[TEST_DIR]!,
 						compaction: {
 							[sessionId]: {
 								isCompacting: true,
@@ -159,7 +159,7 @@ describe("useCompactionState", () => {
 			useOpencodeStore.setState({
 				directories: {
 					[TEST_DIR]: {
-						...useOpencodeStore.getState().directories[TEST_DIR],
+						...useOpencodeStore.getState().directories[TEST_DIR]!,
 						compaction: {
 							[sessionId]: {
 								isCompacting: false,
@@ -183,7 +183,7 @@ describe("useCompactionState", () => {
 			useOpencodeStore.setState({
 				directories: {
 					[TEST_DIR]: {
-						...useOpencodeStore.getState().directories[TEST_DIR],
+						...useOpencodeStore.getState().directories[TEST_DIR]!,
 						compaction: {
 							[sessionId]: {
 								isCompacting: true,
@@ -212,7 +212,7 @@ describe("useCompactionState", () => {
 			useOpencodeStore.setState({
 				directories: {
 					[TEST_DIR]: {
-						...useOpencodeStore.getState().directories[TEST_DIR],
+						...useOpencodeStore.getState().directories[TEST_DIR]!,
 						compaction: {
 							[sessionId]: {
 								isCompacting: true,

@@ -1,8 +1,8 @@
 import { describe, it, expect } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Schedule from "effect/Schedule"
-import { parseDuration, buildSchedule } from "./schedule.js"
-import type { RetryConfig } from "./types.js"
+import { parseDuration, buildSchedule } from "./schedule"
+import type { RetryConfig } from "./types"
 
 describe("parseDuration", () => {
 	it("parses '5s' to 5000ms", () => {

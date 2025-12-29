@@ -5,9 +5,9 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as Duration from "effect/Duration"
-import type { Route, HandlerContext, HandlerFn, RouteConfig } from "./types.js"
-import { ValidationError, TimeoutError, HandlerError, MiddlewareError } from "./errors.js"
-import { parseDuration, buildSchedule } from "./schedule.js"
+import type { Route, HandlerContext, HandlerFn, RouteConfig } from "./types"
+import { ValidationError, TimeoutError, HandlerError, MiddlewareError } from "./errors"
+import { parseDuration, buildSchedule } from "./schedule"
 import type { OpencodeClient } from "../client.js"
 
 /**
@@ -29,15 +29,9 @@ export function executeRoute<TInput, TOutput>(
 		if (route._inputSchema) {
 			const decoded = Schema.decodeUnknown(route._inputSchema)(input)
 			const parseResult = yield* Effect.mapError(decoded, (error) => {
-				// Convert Schema ParseError to ValidationError with Zod-compatible format
+				// Convert Schema ParseError to ValidationError
 				return new ValidationError({
-					issues: [
-						{
-							code: "custom" as const,
-							path: [],
-							message: String(error),
-						},
-					],
+					issues: error.issue ? [error.issue] : [],
 				})
 			})
 			validatedInput = parseResult
@@ -96,6 +90,9 @@ function executeWithMiddleware<TInput, TOutput>(
 				}
 
 				const currentMiddleware = middleware[index]
+				if (!currentMiddleware) {
+					throw new Error("Middleware not found at index")
+				}
 				index++
 
 				return currentMiddleware(context, dispatch)

@@ -91,17 +91,12 @@ async function getProjectsWithSessions(): Promise<ProjectWithSessions[]> {
 	// 2. Filter to real projects only
 	const realProjects = allProjects.filter(isRealProject)
 
-	// 3. Fetch sessions for each project (in parallel, with timeout)
+	// 3. Fetch sessions for each project (in parallel)
 	const projectsWithSessionsData = await Promise.all(
 		realProjects.map(async (project) => {
 			try {
 				const client = createClient(project.worktree)
-				const sessionsResponse = await Promise.race([
-					client.session.list(),
-					new Promise<{ data: Session[] }>((_, reject) =>
-						setTimeout(() => reject(new Error("timeout")), 5000),
-					),
-				])
+				const sessionsResponse = await client.session.list()
 				const allSessions = (sessionsResponse.data || []) as Session[]
 
 				// Filter out subagent sessions and sort by updated

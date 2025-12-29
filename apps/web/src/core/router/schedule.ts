@@ -4,7 +4,7 @@
  */
 import * as Schedule from "effect/Schedule"
 import * as Duration from "effect/Duration"
-import type { Duration as DurationStr, RetryConfig } from "./types.js"
+import type { Duration as DurationStr, RetryConfig } from "./types"
 
 /**
  * Parse duration string to milliseconds
@@ -16,7 +16,7 @@ import type { Duration as DurationStr, RetryConfig } from "./types.js"
  */
 export function parseDuration(duration: DurationStr): number {
 	const match = duration.match(/^(\d+)(ms|s|m|h)$/)
-	if (!match) {
+	if (!match || !match[1] || !match[2]) {
 		throw new Error(`Invalid duration format: ${duration}`)
 	}
 

@@ -3,7 +3,7 @@
  * ADR 002 Layer 3 - Depends on types.ts and builder.ts
  */
 import { Data } from "effect"
-import type { Route } from "./types.js"
+import type { Route } from "./types"
 
 /**
  * Error thrown when route path cannot be resolved

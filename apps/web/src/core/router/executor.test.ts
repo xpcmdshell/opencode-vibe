@@ -1,9 +1,9 @@
 import { describe, it, expect } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
-import { executeRoute, executeRequestHandler } from "./executor.js"
-import { ValidationError, TimeoutError, HandlerError, MiddlewareError } from "./errors.js"
-import type { Route, HandlerContext } from "./types.js"
+import { executeRoute, executeRequestHandler } from "./executor"
+import { ValidationError, TimeoutError, HandlerError, MiddlewareError } from "./errors"
+import type { Route, HandlerContext } from "./types"
 
 /**
  * TDD: Write tests FIRST before implementing executor.ts

@@ -473,7 +473,7 @@ describe("useSSE Hook - SSE Logic", () => {
 		}
 
 		expect(errors).toHaveLength(1)
-		expect(errors[0].message).toBe("SSE failed: 500 Server Error")
+		expect(errors[0]!.message).toBe("SSE failed: 500 Server Error")
 	})
 
 	test("should cleanup abort controller on unmount", async () => {

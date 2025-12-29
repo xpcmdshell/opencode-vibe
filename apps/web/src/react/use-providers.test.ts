@@ -9,7 +9,6 @@ globalThis.window = window
 import { renderHook, waitFor } from "@testing-library/react"
 import { describe, expect, test, mock, beforeEach } from "bun:test"
 import { useProviders } from "./use-providers"
-import { createClient } from "@/core/client"
 
 // Mock providers in SDK format (models as dictionary)
 const mockProvidersSDK = [
@@ -51,16 +50,18 @@ const mockProviders = [
 	},
 ]
 
-// Mock the client module
-const mockListFn = mock(async () => ({
-	data: { all: mockProvidersSDK, default: mockProvidersSDK[0], connected: [] },
-	error: undefined,
-}))
-mock.module("@/core/client", () => ({
-	createClient: mock(() => ({
-		provider: {
-			list: mockListFn,
-		},
+// Mock the useOpenCode hook (default mock, overridden per-test)
+mock.module("./provider", () => ({
+	useOpenCode: mock(() => ({
+		url: "http://localhost:3000",
+		directory: "/test/directory",
+		ready: true,
+		sync: mock(() => Promise.resolve()),
+		caller: mock(async () => ({
+			all: mockProvidersSDK,
+			default: mockProvidersSDK[0],
+			connected: [],
+		})),
 	})),
 }))
 
@@ -70,6 +71,22 @@ describe("useProviders", () => {
 	})
 
 	test("should fetch providers on mount", async () => {
+		const mockCaller = mock(async () => ({
+			all: mockProvidersSDK,
+			default: mockProvidersSDK[0],
+			connected: [],
+		}))
+
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				url: "http://localhost:3000",
+				directory: "/test/directory",
+				ready: true,
+				sync: mock(() => Promise.resolve()),
+				caller: mockCaller,
+			})),
+		}))
+
 		const { result } = renderHook(() => useProviders())
 
 		// Initially loading
@@ -88,15 +105,17 @@ describe("useProviders", () => {
 
 	test("should handle errors", async () => {
 		const mockError = new Error("Failed to fetch providers")
+		const mockCaller = mock(async () => {
+			throw mockError
+		})
 
-		// Override mock to reject
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => ({
-				provider: {
-					list: mock(async () => {
-						throw mockError
-					}),
-				},
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				url: "http://localhost:3000",
+				directory: "/test/directory",
+				ready: true,
+				sync: mock(() => Promise.resolve()),
+				caller: mockCaller,
 			})),
 		}))
 
@@ -111,110 +130,58 @@ describe("useProviders", () => {
 		expect(result.current.error).toBe(mockError)
 	})
 
-	test("should use directory scoping when provided", async () => {
-		const directory = "/path/to/project"
-		const listFn = mock(async () => ({
-			data: { all: mockProviders, default: mockProviders[0], connected: [] },
-			error: undefined,
-		}))
-		const mockCreateClient = mock(() => ({
-			provider: {
-				list: listFn,
-			},
+	test("should call provider.list route via caller", async () => {
+		const mockCaller = mock(async () => ({
+			all: mockProvidersSDK,
+			default: mockProvidersSDK[0],
+			connected: [],
 		}))
 
-		mock.module("@/core/client", () => ({
-			createClient: mockCreateClient,
-		}))
-
-		renderHook(() => useProviders({ directory }))
-
-		await waitFor(() => {
-			expect(mockCreateClient).toHaveBeenCalledWith(directory)
-		})
-	})
-
-	test("should create client without directory when not provided", async () => {
-		const listFn = mock(async () => ({
-			data: { all: mockProviders, default: mockProviders[0], connected: [] },
-			error: undefined,
-		}))
-		const mockCreateClient = mock(() => ({
-			provider: {
-				list: listFn,
-			},
-		}))
-
-		mock.module("@/core/client", () => ({
-			createClient: mockCreateClient,
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				url: "http://localhost:3000",
+				directory: "/test/directory",
+				ready: true,
+				sync: mock(() => Promise.resolve()),
+				caller: mockCaller,
+			})),
 		}))
 
 		renderHook(() => useProviders())
 
 		await waitFor(() => {
-			expect(mockCreateClient).toHaveBeenCalledWith(undefined)
+			expect(mockCaller).toHaveBeenCalledWith("provider.list", {})
 		})
 	})
 
-	test("should not refetch when directory stays the same", async () => {
-		const listMock = mock(async () => ({
-			data: { all: mockProviders, default: mockProviders[0], connected: [] },
-			error: undefined,
+	test("should call provider.list only once on mount", async () => {
+		const mockCaller = mock(async () => ({
+			all: mockProvidersSDK,
+			default: mockProvidersSDK[0],
+			connected: [],
 		}))
 
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => ({
-				provider: {
-					list: listMock,
-				},
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				url: "http://localhost:3000",
+				directory: "/test/directory",
+				ready: true,
+				sync: mock(() => Promise.resolve()),
+				caller: mockCaller,
 			})),
 		}))
 
-		const { rerender } = renderHook(({ dir }) => useProviders({ directory: dir }), {
-			initialProps: { dir: "/path/to/project" },
-		})
+		const { rerender } = renderHook(() => useProviders())
 
 		await waitFor(() => {
-			expect(listMock).toHaveBeenCalledTimes(1)
+			expect(mockCaller).toHaveBeenCalledTimes(1)
 		})
 
-		// Rerender with same directory
-		rerender({ dir: "/path/to/project" })
+		// Rerender should not trigger refetch
+		rerender()
 
-		// Should not fetch again (give it a moment to potentially trigger)
+		// Give it a moment to potentially trigger
 		await new Promise((resolve) => setTimeout(resolve, 50))
-		expect(listMock).toHaveBeenCalledTimes(1)
-	})
-
-	test("should refetch when directory changes", async () => {
-		const listMock = mock(async () => ({
-			data: { all: mockProviders, default: mockProviders[0], connected: [] },
-			error: undefined,
-		}))
-		const mockCreateClient = mock(() => ({
-			provider: {
-				list: listMock,
-			},
-		}))
-
-		mock.module("@/core/client", () => ({
-			createClient: mockCreateClient,
-		}))
-
-		const { rerender } = renderHook(({ dir }) => useProviders({ directory: dir }), {
-			initialProps: { dir: "/path/to/project" },
-		})
-
-		await waitFor(() => {
-			expect(listMock).toHaveBeenCalledTimes(1)
-		})
-
-		// Change directory
-		rerender({ dir: "/different/path" })
-
-		await waitFor(() => {
-			expect(listMock).toHaveBeenCalledTimes(2)
-		})
-		expect(mockCreateClient).toHaveBeenLastCalledWith("/different/path")
+		expect(mockCaller).toHaveBeenCalledTimes(1)
 	})
 })

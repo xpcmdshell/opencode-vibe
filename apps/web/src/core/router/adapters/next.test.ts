@@ -5,7 +5,7 @@
 import { describe, test, expect, beforeAll, afterAll, afterEach, mock } from "bun:test"
 import { createOpencodeRoute } from "../builder.js"
 import { createRouter } from "../router.js"
-import { createNextHandler, createAction } from "./next.js"
+import { createNextHandler, createAction } from "./next"
 import { Schema } from "effect"
 
 // Mock SDK client for testing

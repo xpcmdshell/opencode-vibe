@@ -77,10 +77,13 @@ async function promiseAllSettledLimit<T>(tasks: (() => Promise<T>)[], limit: num
 	async function worker() {
 		while (index < tasks.length) {
 			const currentIndex = index++
-			try {
-				results[currentIndex] = await tasks[currentIndex]()
-			} catch {
-				// Swallow errors, results[currentIndex] stays undefined
+			const task = tasks[currentIndex]
+			if (task) {
+				try {
+					results[currentIndex] = await task()
+				} catch {
+					// Swallow errors, results[currentIndex] stays undefined
+				}
 			}
 		}
 	}

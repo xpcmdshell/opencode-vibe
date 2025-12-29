@@ -12,7 +12,7 @@ import type {
 	ErrorHandlerFn,
 	Duration,
 	RetryConfig,
-} from "./types.js"
+} from "./types"
 
 /**
  * Internal builder state

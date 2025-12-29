@@ -82,7 +82,7 @@ describe("useContextUsage", () => {
 		// Set context usage in store (as provider would do via handleEvent)
 		act(() => {
 			useOpencodeStore.setState((state) => {
-				state.directories[TEST_DIR].contextUsage[sessionId] = {
+				state.directories[TEST_DIR]!.contextUsage[sessionId] = {
 					used: 50000,
 					limit: 200000,
 					percentage: 25,
@@ -117,7 +117,7 @@ describe("useContextUsage", () => {
 		// Simulate store update (as provider would do via handleEvent)
 		act(() => {
 			useOpencodeStore.setState((state) => {
-				state.directories[TEST_DIR].contextUsage[sessionId] = {
+				state.directories[TEST_DIR]!.contextUsage[sessionId] = {
 					used: 100000,
 					limit: 200000,
 					percentage: 50,
@@ -136,7 +136,7 @@ describe("useContextUsage", () => {
 		// Update to near limit
 		act(() => {
 			useOpencodeStore.setState((state) => {
-				state.directories[TEST_DIR].contextUsage[sessionId] = {
+				state.directories[TEST_DIR]!.contextUsage[sessionId] = {
 					used: 180000,
 					limit: 200000,
 					percentage: 90,
@@ -157,7 +157,7 @@ describe("useContextUsage", () => {
 		// Set context usage for one session
 		act(() => {
 			useOpencodeStore.setState((state) => {
-				state.directories[TEST_DIR].contextUsage[sessionId] = {
+				state.directories[TEST_DIR]!.contextUsage[sessionId] = {
 					used: 50000,
 					limit: 200000,
 					percentage: 25,
@@ -179,7 +179,7 @@ describe("useContextUsage", () => {
 	it("calculates remaining tokens correctly", () => {
 		act(() => {
 			useOpencodeStore.setState((state) => {
-				state.directories[TEST_DIR].contextUsage[sessionId] = {
+				state.directories[TEST_DIR]!.contextUsage[sessionId] = {
 					used: 75000,
 					limit: 100000,
 					percentage: 75,

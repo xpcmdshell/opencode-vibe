@@ -267,7 +267,8 @@ export function SessionMessages({
 	// The store hydration is idempotent - it only hydrates if not already hydrated
 	const targetDirectory = directory || "/"
 	const store = useOpencodeStore.getState()
-	const isHydrated = store.directories[targetDirectory]?.messages[sessionId]?.length > 0
+	const directoryState = store.directories[targetDirectory]
+	const isHydrated = (directoryState?.messages[sessionId]?.length ?? 0) > 0
 
 	if (!isHydrated && initialStoreMessages.length > 0) {
 		store.hydrateMessages(targetDirectory, sessionId, initialStoreMessages, initialStoreParts)

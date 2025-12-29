@@ -235,12 +235,15 @@ export const SubagentCurrentActivity = React.memo(
 		if (prevSummary.length !== nextSummary.length) return false
 
 		// Compare each item's content (id, status, tool)
-		return prevSummary.every(
-			(item, i) =>
-				item.id === nextSummary[i].id &&
-				item.state.status === nextSummary[i].state.status &&
-				item.tool === nextSummary[i].tool,
-		)
+		return prevSummary.every((item, i) => {
+			const nextItem = nextSummary[i]
+			return (
+				nextItem &&
+				item.id === nextItem.id &&
+				item.state.status === nextItem.state.status &&
+				item.tool === nextItem.tool
+			)
+		})
 	},
 )
 
@@ -370,11 +373,14 @@ export const SubagentToolTree = React.memo(SubagentToolTreeInternal, (prevProps,
 	if (prevSummary.length !== nextSummary.length) return false
 
 	// Compare each item's content (id, status, tool, title)
-	return prevSummary.every(
-		(item, i) =>
-			item.id === nextSummary[i].id &&
-			item.state.status === nextSummary[i].state.status &&
-			item.tool === nextSummary[i].tool &&
-			item.state.title === nextSummary[i].state.title,
-	)
+	return prevSummary.every((item, i) => {
+		const nextItem = nextSummary[i]
+		return (
+			nextItem &&
+			item.id === nextItem.id &&
+			item.state.status === nextItem.state.status &&
+			item.tool === nextItem.tool &&
+			item.state.title === nextItem.state.title
+		)
+	})
 })

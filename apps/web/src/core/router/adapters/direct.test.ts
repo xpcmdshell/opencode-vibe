@@ -5,7 +5,7 @@
 import { describe, test, expect, mock } from "bun:test"
 import { createOpencodeRoute } from "../builder.js"
 import { createRouter } from "../router.js"
-import { createCaller } from "./direct.js"
+import { createCaller } from "./direct"
 import { Schema } from "effect"
 
 // Mock SDK client for testing

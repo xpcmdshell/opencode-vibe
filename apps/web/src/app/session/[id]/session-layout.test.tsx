@@ -77,8 +77,8 @@ describe("SessionLayout Hook Integration", () => {
 		// Verify messages can be retrieved
 		const messages = store.getMessages(TEST_DIR, mockMessage.sessionID)
 		expect(messages).toHaveLength(1)
-		expect(messages[0].id).toBe(mockMessage.id)
-		expect(messages[0].role).toBe("user")
+		expect(messages[0]!.id).toBe(mockMessage.id)
+		expect(messages[0]!.role).toBe("user")
 	})
 
 	test("store hydration with initial session", () => {
@@ -133,9 +133,9 @@ describe("SessionLayout Hook Integration", () => {
 		// Verify messages are sorted by id
 		const messages = store.getMessages(TEST_DIR, "test-session-id")
 		expect(messages).toHaveLength(3)
-		expect(messages[0].id).toBe("msg-a")
-		expect(messages[1].id).toBe("msg-b")
-		expect(messages[2].id).toBe("msg-c")
+		expect(messages[0]!.id).toBe("msg-a")
+		expect(messages[1]!.id).toBe("msg-b")
+		expect(messages[2]!.id).toBe("msg-c")
 	})
 
 	test("session updates preserve existing data", () => {

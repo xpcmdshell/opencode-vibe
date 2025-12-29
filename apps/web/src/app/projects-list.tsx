@@ -228,9 +228,8 @@ function deriveSessionStatus(
 		info: { role: string; time?: { created: number; completed?: number } }
 	}>,
 ): "running" | "completed" {
-	if (messages.length === 0) return "completed"
-
 	const lastMessage = messages[messages.length - 1]
+	if (!lastMessage) return "completed"
 
 	// Session is busy if last message is assistant without completed time
 	if (lastMessage.info.role === "assistant" && !lastMessage.info.time?.completed) {

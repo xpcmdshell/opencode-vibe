@@ -5,9 +5,9 @@
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import * as Duration from "effect/Duration"
-import type { Route, HandlerContext } from "./types.js"
-import { StreamError, HeartbeatTimeoutError } from "./errors.js"
-import { parseDuration } from "./schedule.js"
+import type { Route, HandlerContext } from "./types"
+import { StreamError, HeartbeatTimeoutError } from "./errors"
+import { parseDuration } from "./schedule"
 
 /**
  * Execute a streaming route handler

@@ -15,11 +15,11 @@ describe("convertToApiParts", () => {
 			const result = convertToApiParts(prompt, directory)
 
 			expect(result).toHaveLength(1)
-			expect(result[0]).toMatchObject({
+			expect(result[0]!).toMatchObject({
 				type: "text",
 				text: "Hello world",
 			})
-			expect(result[0].id).toBeDefined()
+			expect(result[0]!.id).toBeDefined()
 		})
 
 		it("handles empty prompt with empty text part", () => {
@@ -197,9 +197,9 @@ describe("convertToApiParts", () => {
 			const result = convertToApiParts(prompt, directory)
 
 			expect(result).toHaveLength(3) // text + 2 files
-			expect(result[0].type).toBe("text")
-			expect(result[1].type).toBe("file")
-			expect(result[2].type).toBe("file")
+			expect(result[0]!.type).toBe("text")
+			expect(result[1]!.type).toBe("file")
+			expect(result[2]!.type).toBe("file")
 		})
 	})
 

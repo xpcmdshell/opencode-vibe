@@ -275,7 +275,7 @@ describe("prompt-parsing", () => {
 
 			expect(editor.textContent).toBe("Hello")
 			expect(editor.childNodes.length).toBe(1)
-			expect(editor.childNodes[0].nodeType).toBe(TEXT_NODE)
+			expect(editor.childNodes[0]!.nodeType).toBe(TEXT_NODE)
 		})
 
 		it("should render file attachment as pill element", () => {
@@ -320,9 +320,9 @@ describe("prompt-parsing", () => {
 
 			expect(editor.textContent).toBe("Check @main.ts file")
 			expect(editor.childNodes.length).toBe(3)
-			expect(editor.childNodes[0].nodeType).toBe(TEXT_NODE)
-			expect((editor.childNodes[1] as HTMLElement).dataset.type).toBe("file")
-			expect(editor.childNodes[2].nodeType).toBe(TEXT_NODE)
+			expect(editor.childNodes[0]!.nodeType).toBe(TEXT_NODE)
+			expect((editor.childNodes[1]! as HTMLElement).dataset.type).toBe("file")
+			expect(editor.childNodes[2]!.nodeType).toBe(TEXT_NODE)
 		})
 
 		it("should clear existing content before rendering", () => {

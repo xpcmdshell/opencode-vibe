@@ -15,7 +15,7 @@ interface NewSessionButtonProps {
  */
 export function NewSessionButton({ directory }: NewSessionButtonProps) {
 	const router = useRouter()
-	const { createSession, isCreating, error } = useCreateSession(directory || "")
+	const { createSession, isCreating, error } = useCreateSession()
 
 	const handleCreate = async () => {
 		const session = await createSession()

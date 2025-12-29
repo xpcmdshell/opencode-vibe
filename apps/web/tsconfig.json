@@ -1,16 +1,28 @@
 {
 	"compilerOptions": {
-		"target": "ES2017",
-		"lib": ["dom", "dom.iterable", "esnext"],
-		"allowJs": true,
-		"skipLibCheck": true,
-		"strict": true,
-		"noEmit": true,
+		/* Base Options */
 		"esModuleInterop": true,
-		"module": "esnext",
-		"moduleResolution": "bundler",
+		"skipLibCheck": true,
+		"target": "es2022",
+		"allowJs": true,
 		"resolveJsonModule": true,
+		"moduleDetection": "force",
 		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+
+		/* Strictness */
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitOverride": true,
+
+		/* Not transpiling with TypeScript (Next.js handles it) */
+		"module": "preserve",
+		"noEmit": true,
+
+		/* Running in the DOM */
+		"lib": ["es2022", "dom", "dom.iterable"],
+
+		/* React/Next.js specific */
 		"jsx": "react-jsx",
 		"incremental": true,
 		"plugins": [

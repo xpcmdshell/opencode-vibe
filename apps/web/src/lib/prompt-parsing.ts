@@ -175,7 +175,7 @@ export function detectAtTrigger(
 	// Check if @ is at word boundary (start or after whitespace/newline)
 	if (atIndex > 0) {
 		const charBefore = textBeforeCursor[atIndex - 1]
-		if (!/[\s\n]/.test(charBefore)) {
+		if (!charBefore || !/[\s\n]/.test(charBefore)) {
 			return { match: false, query: "" }
 		}
 	}
@@ -185,7 +185,8 @@ export function detectAtTrigger(
 
 	// Check no whitespace after @ in the query (query continues to cursor)
 	const textAfterCursor = text.slice(cursorPos)
-	if (textAfterCursor.length > 0 && !/[\s\n]/.test(textAfterCursor[0])) {
+	const firstCharAfter = textAfterCursor[0]
+	if (textAfterCursor.length > 0 && firstCharAfter && !/[\s\n]/.test(firstCharAfter)) {
 		// Cursor is mid-word, not at end
 		return { match: false, query: "" }
 	}
@@ -205,7 +206,7 @@ export function detectSlashTrigger(text: string): {
 	const lines = text.split("\n")
 	const lastLine = lines[lines.length - 1]
 
-	if (!lastLine.startsWith("/")) {
+	if (!lastLine || !lastLine.startsWith("/")) {
 		return { match: false, query: "" }
 	}
 

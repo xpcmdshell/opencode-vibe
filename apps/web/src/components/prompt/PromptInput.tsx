@@ -115,12 +115,16 @@ export function PromptInput({
 			currentParts.length === parts.length &&
 			currentParts.every((part, i) => {
 				const storePart = parts[i]
+				if (!storePart) return false
 				if (part.type !== storePart.type) return false
 				if (part.type === "text" && storePart.type === "text") {
 					return part.content === storePart.content
 				}
 				if (part.type === "file" && storePart.type === "file") {
 					return part.path === storePart.path && part.content === storePart.content
+				}
+				if (part.type === "image" && storePart.type === "image") {
+					return part.id === storePart.id
 				}
 				return false
 			})
@@ -148,6 +152,7 @@ export function PromptInput({
 		const contentExists = newParts.some((p) => {
 			if (p.type === "text") return p.content.trim().length > 0
 			if (p.type === "file") return true
+			if (p.type === "image") return true
 			return false
 		})
 		setHasContent(contentExists)
@@ -156,9 +161,8 @@ export function PromptInput({
 		// Get full text content for trigger detection
 		const text = newParts
 			.map((p) => {
-				if (p.type === "text" || p.type === "file") {
-					return p.content
-				}
+				if (p.type === "text") return p.content
+				if (p.type === "file") return p.content
 				return ""
 			})
 			.join("")
@@ -211,7 +215,8 @@ export function PromptInput({
 			const cmd = item as SlashCommand
 			const text = parts
 				.map((p) => {
-					if (p.type === "text" || p.type === "file") return p.content
+					if (p.type === "text") return p.content
+					if (p.type === "file") return p.content
 					return ""
 				})
 				.join("")

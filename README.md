@@ -224,15 +224,16 @@ bun test --watch        # Watch mode
 
 ### React Hooks
 
-The web UI provides several hooks for interacting with OpenCode:
+The web UI provides several hooks for interacting with OpenCode. All hooks use the **Effect-based router** for type-safe, composable request handling with built-in timeouts, retries, and error handling.
 
 ```tsx
 import {
   useSession, // Get session data
   useMessages, // Get messages for a session
-  useSendMessage, // Send a message
+  useSendMessage, // Send a message (uses caller internally)
   useSessionStatus, // Get session status (idle/busy/error)
-  useProviders, // List available AI providers
+  useProviders, // List available AI providers (uses caller internally)
+  useOpenCode, // Access the caller directly
 } from "@/react";
 
 // Example: Display session messages
@@ -259,6 +260,19 @@ function SessionView({ sessionId }: { sessionId: string }) {
       />
     </div>
   );
+}
+
+// Example: Using the caller directly
+function CustomComponent() {
+  const { caller } = useOpenCode();
+
+  const handleClick = async () => {
+    // Type-safe route invocation with built-in timeout
+    const session = await caller("session.create", { title: "New Session" });
+    console.log(session);
+  };
+
+  return <button onClick={handleClick}>Create Session</button>;
 }
 ```
 
@@ -306,6 +320,8 @@ Check SSE connections in DevTools → Network → filter by "event". Should see 
 ## Documentation
 
 - [ADR 001: Next.js Rebuild](docs/adr/001-nextjs-rebuild.md) - Architecture rationale
+- [ADR 002: Effect Router](docs/adr/002-effect-migration.md) - Effect-powered async router
+- [Router Migration Guide](docs/guides/ROUTER_MIGRATION.md) - Migrating to Effect router
 - [Sync Implementation Guide](docs/guides/SYNC_IMPLEMENTATION.md) - SSE sync details
 - [Subagent Display Guide](docs/guides/SUBAGENT_DISPLAY.md) - Rendering subagent messages
 - [Mobile Client Guide](docs/guides/MOBILE_CLIENT_IMPLEMENTATION.md) - Mobile considerations

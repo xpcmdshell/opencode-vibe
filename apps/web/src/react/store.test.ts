@@ -66,7 +66,7 @@ describe("OpencodeStore", () => {
 			store.initDirectory(TEST_DIRECTORY)
 
 			// Re-fetch state after mutation
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir).toBeDefined()
 			expect(dir.ready).toBe(false)
 			expect(dir.sessions).toEqual([])
@@ -96,7 +96,7 @@ describe("OpencodeStore", () => {
 			store.initDirectory(TEST_DIRECTORY)
 
 			// Data should still be there
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.sessions).toHaveLength(1)
 		})
 	})
@@ -138,11 +138,11 @@ describe("OpencodeStore", () => {
 				properties: { info: sessionB },
 			})
 
-			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
-			expect(sessions).toHaveLength(3)
-			expect(sessions[0].id).toBe("session-a")
-			expect(sessions[1].id).toBe("session-b")
-			expect(sessions[2].id).toBe("session-c")
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
+			expect(sessions)!.toHaveLength(3)
+			expect(sessions![0]!.id).toBe("session-a")
+			expect(sessions![1]!.id).toBe("session-b")
+			expect(sessions![2]!.id).toBe("session-c")
 		})
 
 		test("auto-creates directory if not initialized", () => {
@@ -160,7 +160,7 @@ describe("OpencodeStore", () => {
 				properties: { info: session },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir).toBeDefined()
 			expect(dir.sessions).toHaveLength(1)
 		})
@@ -203,11 +203,11 @@ describe("OpencodeStore", () => {
 				properties: { info: sessionB },
 			})
 
-			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
-			expect(sessions).toHaveLength(3)
-			expect(sessions[0].id).toBe("session-a")
-			expect(sessions[1].id).toBe("session-b")
-			expect(sessions[2].id).toBe("session-c")
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
+			expect(sessions)!.toHaveLength(3)
+			expect(sessions![0]!.id).toBe("session-a")
+			expect(sessions![1]!.id).toBe("session-b")
+			expect(sessions![2]!.id).toBe("session-c")
 		})
 
 		test("updates existing session", () => {
@@ -237,9 +237,9 @@ describe("OpencodeStore", () => {
 				properties: { info: updatedSession },
 			})
 
-			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
-			expect(sessions).toHaveLength(1)
-			expect(sessions[0].title).toBe("Updated Title")
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
+			expect(sessions)!.toHaveLength(1)
+			expect(sessions![0]!.title).toBe("Updated Title")
 		})
 
 		test("removes archived session", () => {
@@ -268,8 +268,8 @@ describe("OpencodeStore", () => {
 				properties: { info: archivedSession },
 			})
 
-			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
-			expect(sessions).toHaveLength(0)
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
+			expect(sessions)!.toHaveLength(0)
 		})
 
 		test("auto-creates directory if not initialized", () => {
@@ -287,7 +287,7 @@ describe("OpencodeStore", () => {
 				properties: { info: session },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir).toBeDefined()
 			expect(dir.sessions).toHaveLength(1)
 		})
@@ -303,7 +303,7 @@ describe("OpencodeStore", () => {
 				properties: { sessionID: "session-1", status: "running" },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.sessionStatus["session-1"]).toBe("running")
 		})
 	})
@@ -320,7 +320,7 @@ describe("OpencodeStore", () => {
 				properties: { sessionID: "session-1", diff },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.sessionDiff["session-1"]).toEqual(diff)
 		})
 	})
@@ -357,9 +357,9 @@ describe("OpencodeStore", () => {
 				properties: { sessionID: "session-1" },
 			})
 
-			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
-			expect(sessions).toHaveLength(1)
-			expect(sessions[0].id).toBe("session-2")
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
+			expect(sessions)!.toHaveLength(1)
+			expect(sessions![0]!.id).toBe("session-2")
 		})
 
 		test("no-op when session not found", () => {
@@ -372,8 +372,8 @@ describe("OpencodeStore", () => {
 			})
 
 			// Should not throw
-			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
-			expect(sessions).toHaveLength(0)
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
+			expect(sessions)!.toHaveLength(0)
 		})
 
 		test("auto-creates directory if not initialized", () => {
@@ -384,7 +384,7 @@ describe("OpencodeStore", () => {
 				properties: { sessionID: "session-1" },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir).toBeDefined()
 			// Deleting non-existent session on new directory is no-op
 			expect(dir.sessions).toHaveLength(0)
@@ -425,11 +425,12 @@ describe("OpencodeStore", () => {
 				properties: { info: messageB },
 			})
 
-			const messages = useOpencodeStore.getState().directories[TEST_DIRECTORY].messages["session-1"]
+			const messages =
+				useOpencodeStore.getState().directories[TEST_DIRECTORY]!.messages["session-1"]!
 			expect(messages).toHaveLength(3)
-			expect(messages[0].id).toBe("msg-a")
-			expect(messages[1].id).toBe("msg-b")
-			expect(messages[2].id).toBe("msg-c")
+			expect(messages![0]!.id).toBe("msg-a")
+			expect(messages![1]!.id).toBe("msg-b")
+			expect(messages![2]!.id).toBe("msg-c")
 		})
 
 		test("updates existing message", () => {
@@ -458,9 +459,10 @@ describe("OpencodeStore", () => {
 				properties: { info: updatedMessage },
 			})
 
-			const messages = useOpencodeStore.getState().directories[TEST_DIRECTORY].messages["session-1"]
+			const messages =
+				useOpencodeStore.getState().directories[TEST_DIRECTORY]!.messages["session-1"]!
 			expect(messages).toHaveLength(1)
-			expect(messages[0].role).toBe("assistant")
+			expect(messages![0]!.role).toBe("assistant")
 		})
 	})
 
@@ -494,9 +496,10 @@ describe("OpencodeStore", () => {
 				properties: { sessionID: "session-1", messageID: "msg-1" },
 			})
 
-			const messages = useOpencodeStore.getState().directories[TEST_DIRECTORY].messages["session-1"]
+			const messages =
+				useOpencodeStore.getState().directories[TEST_DIRECTORY]!.messages["session-1"]!
 			expect(messages).toHaveLength(1)
-			expect(messages[0].id).toBe("msg-2")
+			expect(messages![0]!.id).toBe("msg-2")
 		})
 	})
 
@@ -537,11 +540,11 @@ describe("OpencodeStore", () => {
 				properties: { part: partB },
 			})
 
-			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY].parts["msg-1"]
+			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.parts["msg-1"]!
 			expect(parts).toHaveLength(3)
-			expect(parts[0].id).toBe("part-a")
-			expect(parts[1].id).toBe("part-b")
-			expect(parts[2].id).toBe("part-c")
+			expect(parts![0]!.id).toBe("part-a")
+			expect(parts![1]!.id).toBe("part-b")
+			expect(parts![2]!.id).toBe("part-c")
 		})
 
 		test("updates existing part", () => {
@@ -570,9 +573,9 @@ describe("OpencodeStore", () => {
 				properties: { part: updatedPart },
 			})
 
-			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY].parts["msg-1"]
+			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.parts["msg-1"]!
 			expect(parts).toHaveLength(1)
-			expect(parts[0].content).toBe("Updated")
+			expect(parts![0]!.content).toBe("Updated")
 		})
 	})
 
@@ -608,9 +611,9 @@ describe("OpencodeStore", () => {
 				properties: { messageID: "msg-1", partID: "part-1" },
 			})
 
-			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY].parts["msg-1"]
+			const parts = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.parts["msg-1"]!
 			expect(parts).toHaveLength(1)
-			expect(parts[0].id).toBe("part-2")
+			expect(parts![0]!.id).toBe("part-2")
 		})
 	})
 
@@ -639,7 +642,7 @@ describe("OpencodeStore", () => {
 				properties: { sessionID: "session-1", todos },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.todos["session-1"]).toEqual(todos)
 		})
 	})
@@ -649,10 +652,10 @@ describe("OpencodeStore", () => {
 			const store = useOpencodeStore.getState()
 			store.initDirectory(TEST_DIRECTORY)
 
-			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY].ready).toBe(false)
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]!.ready).toBe(false)
 
 			store.setSessionReady(TEST_DIRECTORY, true)
-			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY].ready).toBe(true)
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]!.ready).toBe(true)
 		})
 	})
 
@@ -684,11 +687,11 @@ describe("OpencodeStore", () => {
 
 			store.setSessions(TEST_DIRECTORY, sessions)
 
-			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
 			expect(sorted).toHaveLength(3)
-			expect(sorted[0].id).toBe("session-a")
-			expect(sorted[1].id).toBe("session-b")
-			expect(sorted[2].id).toBe("session-c")
+			expect(sorted![0]!.id).toBe("session-a")
+			expect(sorted![1]!.id).toBe("session-b")
+			expect(sorted![2]!.id).toBe("session-c")
 		})
 	})
 
@@ -705,11 +708,11 @@ describe("OpencodeStore", () => {
 
 			store.setMessages(TEST_DIRECTORY, "session-1", messages)
 
-			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY].messages["session-1"]
+			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.messages["session-1"]
 			expect(sorted).toHaveLength(3)
-			expect(sorted[0].id).toBe("msg-a")
-			expect(sorted[1].id).toBe("msg-b")
-			expect(sorted[2].id).toBe("msg-c")
+			expect(sorted![0]!.id).toBe("msg-a")
+			expect(sorted![1]!.id).toBe("msg-b")
+			expect(sorted![2]!.id).toBe("msg-c")
 		})
 	})
 
@@ -726,11 +729,11 @@ describe("OpencodeStore", () => {
 
 			store.setParts(TEST_DIRECTORY, "msg-1", parts)
 
-			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY].parts["msg-1"]
+			const sorted = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.parts["msg-1"]
 			expect(sorted).toHaveLength(3)
-			expect(sorted[0].id).toBe("part-a")
-			expect(sorted[1].id).toBe("part-b")
-			expect(sorted[2].id).toBe("part-c")
+			expect(sorted![0]!.id).toBe("part-a")
+			expect(sorted![1]!.id).toBe("part-b")
+			expect(sorted![2]!.id).toBe("part-c")
 		})
 	})
 
@@ -762,9 +765,9 @@ describe("OpencodeStore", () => {
 				properties: { info: session1 },
 			})
 
-			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
-			expect(sessions[0].id).toBe("01HX0000000000000000000000")
-			expect(sessions[1].id).toBe("01HX0000000000000000000001")
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
+			expect(sessions![0]!.id).toBe("01HX0000000000000000000000")
+			expect(sessions![1]!.id).toBe("01HX0000000000000000000001")
 		})
 
 		test("immutability - original arrays not modified", () => {
@@ -778,12 +781,12 @@ describe("OpencodeStore", () => {
 				time: { created: Date.now(), updated: Date.now() },
 			}
 
-			const beforeSessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			const beforeSessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
 			store.handleEvent(TEST_DIRECTORY, {
 				type: "session.updated",
 				properties: { info: session },
 			})
-			const afterSessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
+			const afterSessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
 
 			// Different array references (immutable)
 			expect(beforeSessions).not.toBe(afterSessions)
@@ -809,7 +812,7 @@ describe("OpencodeStore", () => {
 			})
 
 			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]).toBeDefined()
-			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions).toHaveLength(1)
+			expect(useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions).toHaveLength(1)
 		})
 
 		test("setSessionReady on non-existent directory is no-op", () => {
@@ -885,9 +888,9 @@ describe("OpencodeStore", () => {
 			sessions.forEach((s) => store.addSession(TEST_DIRECTORY, s))
 
 			const result = useOpencodeStore.getState().getSessions(TEST_DIRECTORY)
-			expect(result).toHaveLength(2)
-			expect(result[0].id).toBe("session-a")
-			expect(result[1].id).toBe("session-b")
+			expect(result)!.toHaveLength(2)
+			expect(result![0]!.id).toBe("session-a")
+			expect(result![1]!.id).toBe("session-b")
 		})
 
 		test("returns empty array when no sessions", () => {
@@ -895,7 +898,7 @@ describe("OpencodeStore", () => {
 			store.initDirectory(TEST_DIRECTORY)
 
 			const result = useOpencodeStore.getState().getSessions(TEST_DIRECTORY)
-			expect(result).toEqual([])
+			expect(result)!.toEqual([])
 		})
 
 		test("returns empty array when directory does not exist", () => {
@@ -927,8 +930,8 @@ describe("OpencodeStore", () => {
 
 			const sessions = useOpencodeStore.getState().getSessions(TEST_DIRECTORY)
 			expect(sessions).toHaveLength(2)
-			expect(sessions[0].id).toBe("session-a")
-			expect(sessions[1].id).toBe("session-c")
+			expect(sessions![0]!.id).toBe("session-a")
+			expect(sessions![1]!.id).toBe("session-c")
 		})
 
 		test("auto-creates directory if not exists", () => {
@@ -1010,7 +1013,7 @@ describe("OpencodeStore", () => {
 
 			const sessions = useOpencodeStore.getState().getSessions(TEST_DIRECTORY)
 			expect(sessions).toHaveLength(1)
-			expect(sessions[0].id).toBe("session-2")
+			expect(sessions![0]!.id).toBe("session-2")
 		})
 
 		test("no-op when session not found", () => {
@@ -1041,8 +1044,8 @@ describe("OpencodeStore", () => {
 
 			const result = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
 			expect(result).toHaveLength(2)
-			expect(result[0].id).toBe("msg-a")
-			expect(result[1].id).toBe("msg-b")
+			expect(result![0]!.id).toBe("msg-a")
+			expect(result![1]!.id).toBe("msg-b")
 		})
 
 		test("returns empty array when no messages for session", () => {
@@ -1080,8 +1083,8 @@ describe("OpencodeStore", () => {
 
 			const messages = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
 			expect(messages).toHaveLength(2)
-			expect(messages[0].id).toBe("msg-a")
-			expect(messages[1].id).toBe("msg-c")
+			expect(messages![0]!.id).toBe("msg-a")
+			expect(messages![1]!.id).toBe("msg-c")
 		})
 
 		test("auto-creates directory if not exists", () => {
@@ -1122,8 +1125,8 @@ describe("OpencodeStore", () => {
 			})
 
 			const messages = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
-			expect(messages[0].role).toBe("assistant")
-			expect(messages[0].time?.completed).toBe(2)
+			expect(messages![0]!.role).toBe("assistant")
+			expect(messages![0]!.time?.completed).toBe(2)
 		})
 
 		test("no-op when message not found", () => {
@@ -1162,7 +1165,7 @@ describe("OpencodeStore", () => {
 
 			const messages = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, "session-1")
 			expect(messages).toHaveLength(1)
-			expect(messages[0].id).toBe("msg-2")
+			expect(messages![0]!.id).toBe("msg-2")
 		})
 
 		test("no-op when message not found", () => {
@@ -1448,7 +1451,7 @@ describe("OpencodeStore", () => {
 			store.handleSSEEvent(globalEvent)
 
 			// AFTER: directory auto-created with empty initial state
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir).toBeDefined()
 			expect(dir.ready).toBe(false) // Not bootstrapped yet
 			expect(dir.sessions).toHaveLength(1) // Session from SSE event was added (NOT dropped)
@@ -1482,7 +1485,7 @@ describe("OpencodeStore", () => {
 			store.handleSSEEvent(globalEvent)
 
 			// AFTER: directory created, status stored (green dot can render)
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir).toBeDefined()
 			expect(dir.sessionStatus["session-1"]).toBe("running")
 		})
@@ -1511,9 +1514,9 @@ describe("OpencodeStore", () => {
 			store.handleSSEEvent(globalEvent)
 
 			// Verify session was added
-			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY].sessions
-			expect(sessions).toHaveLength(1)
-			expect(sessions[0].id).toBe("session-1")
+			const sessions = useOpencodeStore.getState().directories[TEST_DIRECTORY]!.sessions
+			expect(sessions)!.toHaveLength(1)
+			expect(sessions![0]!.id).toBe("session-1")
 		})
 
 		test("handles multiple event types via GlobalEvent", () => {
@@ -1560,7 +1563,7 @@ describe("OpencodeStore", () => {
 				},
 			} as any)
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.sessions).toHaveLength(1)
 			expect(dir.messages["session-1"]).toHaveLength(1)
 			expect(dir.sessionStatus["session-1"]).toBe("running")
@@ -1584,7 +1587,7 @@ describe("OpencodeStore", () => {
 				},
 			} as any)
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir).toBeDefined()
 			expect(dir.sessions).toHaveLength(1)
 		})
@@ -1625,10 +1628,10 @@ describe("OpencodeStore", () => {
 			const dirA = useOpencodeStore.getState().directories["/project-a"]
 			const dirB = useOpencodeStore.getState().directories["/project-b"]
 
-			expect(dirA.sessions).toHaveLength(1)
-			expect(dirA.sessions[0].id).toBe("session-1")
-			expect(dirB.sessions).toHaveLength(1)
-			expect(dirB.sessions[0].id).toBe("session-2")
+			expect(dirA!.sessions).toHaveLength(1)
+			expect(dirA!.sessions![0]!.id).toBe("session-1")
+			expect(dirB!.sessions).toHaveLength(1)
+			expect(dirB!.sessions![0]!.id).toBe("session-2")
 		})
 
 		test("messages from different directories do not leak", () => {
@@ -1669,14 +1672,14 @@ describe("OpencodeStore", () => {
 			const dirA = useOpencodeStore.getState().directories["/project-a"]
 			const dirB = useOpencodeStore.getState().directories["/project-b"]
 
-			expect(dirA.messages["session-1"]).toHaveLength(1)
-			expect(dirA.messages["session-1"][0].id).toBe("msg-1")
-			expect(dirB.messages["session-1"]).toHaveLength(1)
-			expect(dirB.messages["session-1"][0].id).toBe("msg-2")
+			expect(dirA!.messages["session-1"]).toHaveLength(1)
+			expect(dirA!.messages["session-1"]![0]!.id).toBe("msg-1")
+			expect(dirB!.messages["session-1"]).toHaveLength(1)
+			expect(dirB!.messages["session-1"]![0]!.id).toBe("msg-2")
 
 			// Cross-check: project-a should NOT have project-b's message
-			expect(dirA.messages["session-1"].some((m) => m.id === "msg-2")).toBe(false)
-			expect(dirB.messages["session-1"].some((m) => m.id === "msg-1")).toBe(false)
+			expect(dirA!.messages["session-1"]!.some((m) => m.id === "msg-2")).toBe(false)
+			expect(dirB!.messages["session-1"]!.some((m) => m.id === "msg-1")).toBe(false)
 		})
 	})
 
@@ -1702,17 +1705,17 @@ describe("OpencodeStore", () => {
 
 			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, parts)
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 
 			// Verify messages hydrated
 			expect(dir.messages["session-1"]).toHaveLength(2)
-			expect(dir.messages["session-1"][0].id).toBe("msg-1")
-			expect(dir.messages["session-1"][1].id).toBe("msg-2")
+			expect(dir.messages["session-1"]![0]!.id).toBe("msg-1")
+			expect(dir.messages["session-1"]![1]!.id).toBe("msg-2")
 
 			// Verify parts hydrated
 			expect(dir.parts["msg-2"]).toHaveLength(2)
-			expect(dir.parts["msg-2"][0].id).toBe("part-1")
-			expect(dir.parts["msg-2"][1].id).toBe("part-2")
+			expect(dir.parts["msg-2"]![0]!.id).toBe("part-1")
+			expect(dir.parts["msg-2"]![1]!.id).toBe("part-2")
 		})
 
 		test("sorts messages by ID", () => {
@@ -1727,10 +1730,10 @@ describe("OpencodeStore", () => {
 
 			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, {})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
-			expect(dir.messages["session-1"][0].id).toBe("msg-a")
-			expect(dir.messages["session-1"][1].id).toBe("msg-b")
-			expect(dir.messages["session-1"][2].id).toBe("msg-c")
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
+			expect(dir.messages["session-1"]![0]!.id).toBe("msg-a")
+			expect(dir.messages["session-1"]![1]!.id).toBe("msg-b")
+			expect(dir.messages["session-1"]![2]!.id).toBe("msg-c")
 		})
 
 		test("sorts parts by ID for each message", () => {
@@ -1747,10 +1750,10 @@ describe("OpencodeStore", () => {
 
 			store.hydrateMessages(TEST_DIRECTORY, "session-1", [], parts)
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
-			expect(dir.parts["msg-1"][0].id).toBe("part-a")
-			expect(dir.parts["msg-1"][1].id).toBe("part-b")
-			expect(dir.parts["msg-1"][2].id).toBe("part-c")
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
+			expect(dir.parts["msg-1"]![0]!.id).toBe("part-a")
+			expect(dir.parts["msg-1"]![1]!.id).toBe("part-b")
+			expect(dir.parts["msg-1"]![2]!.id).toBe("part-c")
 		})
 
 		test("auto-creates directory if not exists", () => {
@@ -1761,7 +1764,7 @@ describe("OpencodeStore", () => {
 
 			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, {})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir).toBeDefined()
 			expect(dir.messages["session-1"]).toHaveLength(1)
 		})
@@ -1791,9 +1794,9 @@ describe("OpencodeStore", () => {
 			} as any)
 
 			// Should NOT duplicate - still only 1 message
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.messages["session-1"]).toHaveLength(1)
-			expect(dir.messages["session-1"][0].time?.created).toBe(sseMessage.time?.created)
+			expect(dir.messages["session-1"]![0]!.time?.created).toBe(sseMessage.time?.created)
 		})
 
 		test("SSE events add NEW messages after hydration", () => {
@@ -1820,10 +1823,10 @@ describe("OpencodeStore", () => {
 			} as any)
 
 			// Should add new message
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.messages["session-1"]).toHaveLength(2)
-			expect(dir.messages["session-1"][0].id).toBe("msg-1")
-			expect(dir.messages["session-1"][1].id).toBe("msg-2")
+			expect(dir.messages["session-1"]![0]!.id).toBe("msg-1")
+			expect(dir.messages["session-1"]![1]!.id).toBe("msg-2")
 		})
 
 		test("SSE events do not duplicate hydrated parts", () => {
@@ -1860,9 +1863,9 @@ describe("OpencodeStore", () => {
 			} as any)
 
 			// Should NOT duplicate - still only 1 part
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.parts["msg-1"]).toHaveLength(1)
-			expect(dir.parts["msg-1"][0].content).toBe("Updated")
+			expect(dir.parts["msg-1"]![0]!.content).toBe("Updated")
 		})
 
 		test("SSE events add NEW parts after hydration", () => {
@@ -1892,10 +1895,10 @@ describe("OpencodeStore", () => {
 			} as any)
 
 			// Should add new part
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.parts["msg-1"]).toHaveLength(2)
-			expect(dir.parts["msg-1"][0].id).toBe("part-1")
-			expect(dir.parts["msg-1"][1].id).toBe("part-2")
+			expect(dir.parts["msg-1"]![0]!.id).toBe("part-1")
+			expect(dir.parts["msg-1"]![1]!.id).toBe("part-2")
 		})
 
 		test("hydrate then SSE - messages and parts both deduplicate correctly", () => {
@@ -1984,21 +1987,21 @@ describe("OpencodeStore", () => {
 			} as any)
 
 			// Verify final state
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 
 			// Messages: 2 hydrated + 1 new = 3 total (no duplicates)
 			expect(dir.messages["session-1"]).toHaveLength(3)
-			expect(dir.messages["session-1"][0].id).toBe("msg-1")
-			expect(dir.messages["session-1"][1].id).toBe("msg-2")
-			expect(dir.messages["session-1"][1].time?.completed).toBe(456) // Updated
-			expect(dir.messages["session-1"][2].id).toBe("msg-3")
+			expect(dir.messages["session-1"]![0]!.id).toBe("msg-1")
+			expect(dir.messages["session-1"]![1]!.id).toBe("msg-2")
+			expect(dir.messages["session-1"]![1]!.time?.completed).toBe(456) // Updated
+			expect(dir.messages["session-1"]![2]!.id).toBe("msg-3")
 
 			// Parts: 2 hydrated + 1 new = 3 total (no duplicates)
 			expect(dir.parts["msg-2"]).toHaveLength(3)
-			expect(dir.parts["msg-2"][0].id).toBe("part-1")
-			expect(dir.parts["msg-2"][0].content).toBe("Updated via SSE") // Updated
-			expect(dir.parts["msg-2"][1].id).toBe("part-2")
-			expect(dir.parts["msg-2"][2].id).toBe("part-3")
+			expect(dir.parts["msg-2"]![0]!.id).toBe("part-1")
+			expect(dir.parts["msg-2"]![0]!.content).toBe("Updated via SSE") // Updated
+			expect(dir.parts["msg-2"]![1]!.id).toBe("part-2")
+			expect(dir.parts["msg-2"]![2]!.id).toBe("part-3")
 		})
 
 		test("handles empty messages and parts arrays", () => {
@@ -2007,7 +2010,7 @@ describe("OpencodeStore", () => {
 
 			store.hydrateMessages(TEST_DIRECTORY, "session-1", [], {})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.messages["session-1"]).toEqual([])
 			expect(Object.keys(dir.parts)).toHaveLength(0)
 		})
@@ -2032,7 +2035,7 @@ describe("OpencodeStore", () => {
 
 			store.hydrateMessages(TEST_DIRECTORY, "session-1", messages, parts)
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.messages["session-1"]).toHaveLength(3)
 			expect(dir.parts["msg-2"]).toHaveLength(1)
 			expect(dir.parts["msg-3"]).toHaveLength(2)
@@ -2048,7 +2051,7 @@ describe("OpencodeStore", () => {
 			const store = useOpencodeStore.getState()
 			store.initDirectory(TEST_DIRECTORY)
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.contextUsage).toEqual({})
 		})
 
@@ -2083,8 +2086,8 @@ describe("OpencodeStore", () => {
 				properties: { info: message },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
-			const usage = dir.contextUsage["session-1"]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
+			const usage = dir.contextUsage["session-1"]!
 
 			expect(usage).toBeDefined()
 			expect(usage.used).toBe(1800) // input (1000) + cache.read (300) + output (500)
@@ -2127,8 +2130,8 @@ describe("OpencodeStore", () => {
 				properties: { info: message },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
-			const usage = dir.contextUsage["session-1"]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
+			const usage = dir.contextUsage["session-1"]!
 
 			expect(usage.isNearLimit).toBe(true) // >= 80%
 			expect(usage.percentage).toBeGreaterThanOrEqual(80)
@@ -2162,7 +2165,7 @@ describe("OpencodeStore", () => {
 				properties: { info: message },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.modelLimits["claude-3-5-sonnet-20241022"]).toEqual({
 				context: 200000,
 				output: 8192,
@@ -2204,8 +2207,8 @@ describe("OpencodeStore", () => {
 				properties: { info: message },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
-			const usage = dir.contextUsage["session-1"]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
+			const usage = dir.contextUsage["session-1"]!
 
 			// Should have calculated context usage using cached limits
 			expect(usage).toBeDefined()
@@ -2270,7 +2273,7 @@ describe("OpencodeStore", () => {
 			const store = useOpencodeStore.getState()
 			store.initDirectory(TEST_DIRECTORY)
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.compaction).toEqual({})
 		})
 
@@ -2302,8 +2305,8 @@ describe("OpencodeStore", () => {
 				properties: { part },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
-			const compaction = dir.compaction["session-1"]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
+			const compaction = dir.compaction["session-1"]!
 
 			expect(compaction).toBeDefined()
 			expect(compaction.isCompacting).toBe(true)
@@ -2340,8 +2343,8 @@ describe("OpencodeStore", () => {
 				properties: { part },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
-			const compaction = dir.compaction["session-1"]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
+			const compaction = dir.compaction["session-1"]!
 
 			expect(compaction.isAutomatic).toBe(false)
 		})
@@ -2363,8 +2366,8 @@ describe("OpencodeStore", () => {
 				properties: { info: message },
 			})
 
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
-			const compaction = dir.compaction["session-1"]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
+			const compaction = dir.compaction["session-1"]!
 
 			expect(compaction).toBeDefined()
 			expect(compaction.isCompacting).toBe(true)
@@ -2391,9 +2394,9 @@ describe("OpencodeStore", () => {
 			})
 
 			// Verify compaction state exists
-			let dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			let dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.compaction["session-1"]).toBeDefined()
-			expect(dir.compaction["session-1"].isCompacting).toBe(true)
+			expect(dir.compaction["session-1"]!.isCompacting).toBe(true)
 
 			// Trigger session.compacted event
 			store.handleEvent(TEST_DIRECTORY, {
@@ -2402,7 +2405,7 @@ describe("OpencodeStore", () => {
 			})
 
 			// Verify compaction state cleared
-			dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.compaction["session-1"]).toBeUndefined()
 		})
 
@@ -2417,7 +2420,7 @@ describe("OpencodeStore", () => {
 			})
 
 			// Should not throw, just be no-op
-			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]
+			const dir = useOpencodeStore.getState().directories[TEST_DIRECTORY]!
 			expect(dir.compaction["session-1"]).toBeUndefined()
 		})
 	})

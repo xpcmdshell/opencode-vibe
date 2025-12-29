@@ -6,9 +6,9 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import * as Duration from "effect/Duration"
-import { HeartbeatTimeoutError, StreamError } from "./errors.js"
-import { executeStreamHandler, streamToReadable, streamToAsyncIterable } from "./stream.js"
-import type { Route, HandlerContext } from "./types.js"
+import { HeartbeatTimeoutError, StreamError } from "./errors"
+import { executeStreamHandler, streamToReadable, streamToAsyncIterable } from "./stream"
+import type { Route, HandlerContext } from "./types"
 
 describe("executeStreamHandler", () => {
 	let abortController: AbortController

@@ -52,7 +52,7 @@ export function getToolContextLines(part: ToolPart): {
 			if (title) {
 				// Extract number from "Edited 3 occurrences" or "Edited 1 file"
 				const match = title.match(/(\d+)/)
-				if (match) {
+				if (match && match[1]) {
 					const count = Number.parseInt(match[1], 10)
 					changeCount = count === 1 ? "1 change" : `${count} changes`
 				}
@@ -93,7 +93,7 @@ export function getToolContextLines(part: ToolPart): {
 					matchCount = "No matches"
 				} else {
 					const match = title.match(/(\d+)/)
-					if (match) {
+					if (match && match[1]) {
 						const count = Number.parseInt(match[1], 10)
 						matchCount = count === 1 ? "1 match" : `${count} matches`
 					}
@@ -112,7 +112,7 @@ export function getToolContextLines(part: ToolPart): {
 
 			if (title) {
 				const match = title.match(/(\d+)/)
-				if (match) {
+				if (match && match[1]) {
 					const count = Number.parseInt(match[1], 10)
 					fileCount = count === 1 ? "1 file" : `${count} files`
 				}

@@ -8,10 +8,10 @@
 import * as Effect from "effect/Effect"
 import * as Exit from "effect/Exit"
 import * as Cause from "effect/Cause"
-import type { Router } from "../router.js"
-import type { OpencodeClient } from "../../client.js"
-import { executeRoute } from "../executor.js"
-import { executeStreamHandler, streamToAsyncIterable } from "../stream.js"
+import type { Router } from "../router"
+import type { OpencodeClient } from "../../client"
+import { executeRoute } from "../executor"
+import { executeStreamHandler, streamToAsyncIterable } from "../stream"
 
 /**
  * Context for direct caller

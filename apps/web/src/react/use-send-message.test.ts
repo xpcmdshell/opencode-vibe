@@ -9,15 +9,16 @@ globalThis.window = window
 import { renderHook, waitFor, act } from "@testing-library/react"
 import { describe, expect, test, mock, beforeEach } from "bun:test"
 import { useSendMessage } from "./use-send-message"
-import { createClient } from "@/core/client"
 import type { Prompt } from "@/types/prompt"
 
-// Mock the client module
-mock.module("@/core/client", () => ({
-	createClient: mock(() => ({
-		session: {
-			promptAsync: mock(async () => ({ data: undefined, error: undefined })),
-		},
+// Mock useOpenCode to return a caller
+mock.module("./provider", () => ({
+	useOpenCode: mock(() => ({
+		caller: mock(async () => undefined),
+		url: "http://localhost:3000",
+		directory: "/test",
+		ready: true,
+		sync: mock(async () => {}),
 	})),
 }))
 
@@ -41,16 +42,16 @@ describe("useSendMessage", () => {
 		expect(result.current.error).toBeUndefined()
 	})
 
-	test("converts prompt parts to API format and sends", async () => {
-		const mockPromptAsync = mock(async () => ({
-			data: undefined,
-			error: undefined,
-		}))
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+	test("converts prompt parts to API format and sends via caller", async () => {
+		const mockCaller = mock(async () => undefined)
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() =>
@@ -69,42 +70,41 @@ describe("useSendMessage", () => {
 		]
 		await result.current.sendMessage(parts)
 
-		expect(mockPromptAsync).toHaveBeenCalledTimes(1)
-		// Verify API format conversion
-		expect(mockPromptAsync).toHaveBeenCalledWith(
+		expect(mockCaller).toHaveBeenCalledTimes(1)
+		// Verify caller invocation with correct route and input
+		expect(mockCaller).toHaveBeenCalledWith(
+			"session.promptAsync",
 			expect.objectContaining({
-				path: { id: "ses_123" },
-				body: expect.objectContaining({
-					parts: expect.arrayContaining([
-						expect.objectContaining({
-							type: "text",
-							text: "Fix bug in ",
-							id: expect.any(String),
-						}),
-						expect.objectContaining({
-							type: "file",
-							mime: "text/plain",
-							url: "file:///test/src/auth.ts",
-							filename: "auth.ts",
-						}),
-					]),
-				}),
+				sessionId: "ses_123",
+				parts: expect.arrayContaining([
+					expect.objectContaining({
+						type: "text",
+						text: "Fix bug in ",
+						id: expect.any(String),
+					}),
+					expect.objectContaining({
+						type: "file",
+						mime: "text/plain",
+						url: "file:///test/src/auth.ts",
+						filename: "auth.ts",
+					}),
+				]),
 			}),
 		)
 	})
 
 	test("sets isLoading to true during send, false after", async () => {
-		const mockPromptAsync = mock(
-			async () =>
-				new Promise((resolve) =>
-					setTimeout(() => resolve({ data: undefined, error: undefined }), 100),
-				),
+		const mockCaller = mock(
+			async () => new Promise((resolve) => setTimeout(() => resolve(undefined), 100)),
 		)
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
@@ -127,16 +127,19 @@ describe("useSendMessage", () => {
 		})
 	})
 
-	test("sets error state when API call fails", async () => {
+	test("sets error state when caller throws", async () => {
 		const mockError = new Error("Network error")
-		const mockPromptAsync = mock(async () => {
+		const mockCaller = mock(async () => {
 			throw mockError
 		})
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
@@ -155,15 +158,15 @@ describe("useSendMessage", () => {
 	})
 
 	test("handles empty prompt array", async () => {
-		const mockPromptAsync = mock(async () => ({
-			data: undefined,
-			error: undefined,
-		}))
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		const mockCaller = mock(async () => undefined)
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
@@ -171,46 +174,50 @@ describe("useSendMessage", () => {
 		const emptyParts: Prompt = []
 		await result.current.sendMessage(emptyParts)
 
-		expect(mockPromptAsync).toHaveBeenCalledTimes(0)
+		expect(mockCaller).toHaveBeenCalledTimes(0)
 	})
 
-	test("creates new client when directory changes", async () => {
-		const createClientMock = mock((dir?: string, sessionId?: string) => ({
-			session: {
-				promptAsync: mock(async () => ({ data: undefined, error: undefined })),
-			},
+	test("uses caller from useOpenCode context", async () => {
+		const mockCaller = mock(async () => undefined)
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
-		mock.module("@/core/client", () => ({
-			createClient: createClientMock,
-		}))
-
-		const { result, rerender } = renderHook(
-			({ directory }) => useSendMessage({ sessionId: "ses_123", directory }),
-			{ initialProps: { directory: "/dir1" } },
+		const { result } = renderHook(() =>
+			useSendMessage({ sessionId: "ses_123", directory: "/test" }),
 		)
 
 		const parts: Prompt = [{ type: "text", content: "Test", start: 0, end: 4 }]
 		await result.current.sendMessage(parts)
-		expect(createClientMock).toHaveBeenCalledWith("/dir1", "ses_123")
 
-		// Change directory
-		rerender({ directory: "/dir2" })
-
-		await result.current.sendMessage(parts)
-		expect(createClientMock).toHaveBeenCalledWith("/dir2", "ses_123")
+		// Verify caller was used (not direct SDK client)
+		expect(mockCaller).toHaveBeenCalledTimes(1)
+		expect(mockCaller).toHaveBeenCalledWith(
+			"session.promptAsync",
+			expect.objectContaining({
+				sessionId: "ses_123",
+			}),
+		)
 	})
 
-	test("handles SDK response with error property", async () => {
-		const mockPromptAsync = mock(async () => ({
-			data: undefined,
-			error: { message: "API error", code: 500 },
-		}))
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+	test("handles caller errors", async () => {
+		const mockCaller = mock(async () => {
+			throw new Error("API error")
+		})
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
@@ -232,17 +239,20 @@ describe("useSendMessage", () => {
 
 	test("clears error on subsequent successful send", async () => {
 		let shouldFail = true
-		const mockPromptAsync = mock(async () => {
+		const mockCaller = mock(async () => {
 			if (shouldFail) {
 				throw new Error("First attempt fails")
 			}
-			return { data: undefined, error: undefined }
+			return undefined
 		})
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
@@ -276,19 +286,22 @@ describe("useSendMessage", () => {
 			resolveFirst = resolve
 		})
 
-		const mockPromptAsync = mock(async (args: { body: { parts: Array<{ text?: string }> } }) => {
-			const text = args.body.parts[0]?.text || "unknown"
+		const mockCaller = mock(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
+			const text = input.parts[0]?.text || "unknown"
 			if (text === "first") {
 				await firstPromise
 			}
 			callOrder.push(text)
-			return { data: undefined, error: undefined }
+			return undefined
 		})
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
@@ -336,15 +349,18 @@ describe("useSendMessage", () => {
 			resolvePrompt = resolve
 		})
 
-		const mockPromptAsync = mock(async () => {
+		const mockCaller = mock(async () => {
 			await blockingPromise
-			return { data: undefined, error: undefined }
+			return undefined
 		})
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
@@ -379,19 +395,22 @@ describe("useSendMessage", () => {
 		const callOrder: string[] = []
 		let shouldFail = false
 
-		const mockPromptAsync = mock(async (args: { body: { parts: Array<{ text?: string }> } }) => {
-			const text = args.body.parts[0]?.text || "unknown"
+		const mockCaller = mock(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
+			const text = input.parts[0]?.text || "unknown"
 			callOrder.push(text)
 			if (shouldFail && text === "second") {
 				throw new Error("Second message failed")
 			}
-			return { data: undefined, error: undefined }
+			return undefined
 		})
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		const { result } = renderHook(() => useSendMessage({ sessionId: "ses_123" }))
@@ -426,17 +445,20 @@ describe("useSendMessage", () => {
 	test("does not process queue when session is running", async () => {
 		const callOrder: string[] = []
 
-		// Mock promptAsync to track calls
-		const mockPromptAsync = mock(async (args: { body: { parts: Array<{ text?: string }> } }) => {
-			const text = args.body.parts[0]?.text || "unknown"
+		// Mock caller to track calls
+		const mockCaller = mock(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
+			const text = input.parts[0]?.text || "unknown"
 			callOrder.push(text)
-			return { data: undefined, error: undefined }
+			return undefined
 		})
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		// Mock useSessionStatus to return running=true (session busy)
@@ -462,15 +484,15 @@ describe("useSendMessage", () => {
 	})
 
 	test("sends first message immediately even if no session status exists", async () => {
-		const mockPromptAsync = mock(async () => ({
-			data: undefined,
-			error: undefined,
-		}))
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		const mockCaller = mock(async () => undefined)
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		// Mock useSessionStatus to return idle (no status = ok to send)
@@ -485,22 +507,25 @@ describe("useSendMessage", () => {
 		const parts: Prompt = [{ type: "text", content: "Test", start: 0, end: 4 }]
 		await result.current.sendMessage(parts)
 
-		expect(mockPromptAsync).toHaveBeenCalledTimes(1)
+		expect(mockCaller).toHaveBeenCalledTimes(1)
 	})
 
 	test("processes queued messages when session is idle", async () => {
 		const callOrder: string[] = []
 
-		const mockPromptAsync = mock(async (args: { body: { parts: Array<{ text?: string }> } }) => {
-			const text = args.body.parts[0]?.text || "unknown"
+		const mockCaller = mock(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
+			const text = input.parts[0]?.text || "unknown"
 			callOrder.push(text)
-			return { data: undefined, error: undefined }
+			return undefined
 		})
-		const mockClient = {
-			session: { promptAsync: mockPromptAsync },
-		}
-		mock.module("@/core/client", () => ({
-			createClient: mock(() => mockClient),
+		mock.module("./provider", () => ({
+			useOpenCode: mock(() => ({
+				caller: mockCaller,
+				url: "http://localhost:3000",
+				directory: "/test",
+				ready: true,
+				sync: mock(async () => {}),
+			})),
 		}))
 
 		// Mock useSessionStatus to return idle (allows queue processing)

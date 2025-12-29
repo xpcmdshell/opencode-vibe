@@ -129,9 +129,10 @@ describe("PromptInput", () => {
 
 			// Check store was updated
 			const store = usePromptStore.getState()
-			expect(store.parts[0].type).toBe("text")
-			if (store.parts[0].type === "text") {
-				expect(store.parts[0].content).toBe("hello")
+			const firstPart = store.parts[0]!
+			expect(firstPart.type).toBe("text")
+			if (firstPart.type === "text") {
+				expect(firstPart.content).toBe("hello")
 			}
 		})
 
@@ -144,8 +145,9 @@ describe("PromptInput", () => {
 			fireEvent.input(input)
 
 			const store = usePromptStore.getState()
-			if (store.parts[0].type === "text") {
-				expect(store.parts[0].content).toContain("line 1\nline 2")
+			const firstPart = store.parts[0]!
+			if (firstPart.type === "text") {
+				expect(firstPart.content).toContain("line 1\nline 2")
 			}
 		})
 	})
@@ -177,10 +179,11 @@ describe("PromptInput", () => {
 			fireEvent.keyDown(input, { key: "Enter" })
 
 			expect(onSubmit).toHaveBeenCalledTimes(1)
-			const parts: Prompt = onSubmit.mock.calls[0][0]
-			expect(parts[0].type).toBe("text")
-			if (parts[0].type === "text") {
-				expect(parts[0].content).toBe("hello world")
+			const parts: Prompt = onSubmit.mock.calls[0]![0]
+			const firstPart = parts[0]!
+			expect(firstPart.type).toBe("text")
+			if (firstPart.type === "text") {
+				expect(firstPart.content).toBe("hello world")
 			}
 		})
 
@@ -217,8 +220,9 @@ describe("PromptInput", () => {
 
 			// Store should be reset
 			const store = usePromptStore.getState()
-			if (store.parts[0].type === "text") {
-				expect(store.parts[0].content).toBe("")
+			const firstPart = store.parts[0]!
+			if (firstPart.type === "text") {
+				expect(firstPart.content).toBe("")
 			}
 		})
 	})

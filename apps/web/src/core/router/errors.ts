@@ -1,5 +1,5 @@
 import { Data } from "effect"
-import type { ZodIssue } from "zod"
+import type { ParseIssue } from "effect/ParseResult"
 
 export class RouteError extends Data.TaggedError("RouteError")<{
 	route?: string
@@ -8,7 +8,7 @@ export class RouteError extends Data.TaggedError("RouteError")<{
 
 export class ValidationError extends Data.TaggedError("ValidationError")<{
 	route?: string
-	issues: ZodIssue[]
+	issues: ParseIssue[]
 }> {}
 
 export class TimeoutError extends Data.TaggedError("TimeoutError")<{

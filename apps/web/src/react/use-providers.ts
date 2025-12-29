@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { createClient } from "@/core/client"
+import { useOpenCode } from "./provider"
 
 export interface Provider {
 	id: string
@@ -12,10 +12,6 @@ export interface Model {
 	name: string
 }
 
-export interface UseProvidersOptions {
-	directory?: string
-}
-
 export interface UseProvidersReturn {
 	providers: Provider[]
 	isLoading: boolean
@@ -24,6 +20,9 @@ export interface UseProvidersReturn {
 
 /**
  * Hook for fetching available AI providers and their models.
+ *
+ * Uses the router caller to invoke provider.list route.
+ * Directory scoping is handled by the OpenCodeProvider context.
  *
  * @example
  * ```tsx
@@ -45,15 +44,15 @@ export interface UseProvidersReturn {
  * )
  * ```
  */
-export function useProviders({ directory }: UseProvidersOptions = {}): UseProvidersReturn {
+export function useProviders(): UseProvidersReturn {
 	const [providers, setProviders] = useState<Provider[]>([])
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<Error | undefined>(undefined)
 
-	// Create client with directory scoping
-	const client = useMemo(() => createClient(directory), [directory])
+	// Get caller from context
+	const { caller } = useOpenCode()
 
-	// Fetch providers on mount or when directory changes
+	// Fetch providers on mount
 	useEffect(() => {
 		let isCancelled = false
 
@@ -62,18 +61,23 @@ export function useProviders({ directory }: UseProvidersOptions = {}): UseProvid
 			setError(undefined)
 
 			try {
-				const response = await client.provider.list()
-				if (!isCancelled && response.data) {
-					// SDK returns { all: Provider[], default: Provider, connected: string[] }
+				// Caller returns unwrapped data (no .data property)
+				const response = await caller<{
+					all: any[]
+					default: any
+					connected: string[]
+				}>("provider.list", {})
+				if (!isCancelled) {
+					// Response is already unwrapped: { all: Provider[], default: Provider, connected: string[] }
 					// Each provider has models as a dictionary { [key: string]: Model }
 					// We need to transform to our interface where models is an array
-					const rawProviders = response.data.all ?? []
-					const transformedProviders: Provider[] = rawProviders.map((p) => ({
+					const rawProviders = response.all ?? []
+					const transformedProviders: Provider[] = rawProviders.map((p: any) => ({
 						id: p.id,
 						name: p.name,
 						// Transform models dictionary to array
 						models: p.models
-							? Object.entries(p.models).map(([id, model]) => ({
+							? Object.entries(p.models).map(([id, model]: [string, any]) => ({
 									id,
 									name: model.name || id,
 								}))
@@ -98,7 +102,7 @@ export function useProviders({ directory }: UseProvidersOptions = {}): UseProvid
 		return () => {
 			isCancelled = true
 		}
-	}, [client])
+	}, [caller])
 
 	return {
 		providers,

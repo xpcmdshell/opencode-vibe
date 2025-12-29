@@ -1,8 +1,8 @@
 import { useCallback, useState, useRef, useEffect } from "react"
-import { createClient } from "@/core/client"
 import type { Prompt } from "@/types/prompt"
 import { convertToApiParts } from "@/lib/prompt-api"
 import { useSessionStatus } from "./use-session-status"
+import { useOpenCode } from "./provider"
 
 export interface ModelSelection {
 	providerID: string
@@ -34,18 +34,19 @@ export interface UseSendMessageReturn {
  *
  * **Message Queue Behavior:**
  * - Messages are queued client-side in FIFO order
- * - First message sends immediately via prompt_async (returns 204)
+ * - First message sends immediately via router caller (fire-and-forget)
  * - Subsequent messages wait for session to become idle before sending
  * - Session status tracked via SSE session.status events
  * - Queue auto-processes when session transitions from running → idle
  *
  * **Integration Points:**
+ * - Uses `useOpenCode` caller to invoke session.promptAsync route
  * - Uses `useSessionStatus` to monitor session running state
  * - Integrates with SSE via store.handleEvent → session.status updates
  * - Session status format: "running" | "pending" | "completed" | "error"
  *
  * Accepts rich prompt parts (text, file attachments) and converts them
- * to API format before sending.
+ * to API format before sending via the Effect router.
  *
  * @example
  * ```tsx
@@ -74,6 +75,9 @@ export function useSendMessage({
 	const [error, setError] = useState<Error | undefined>(undefined)
 	const [queueLength, setQueueLength] = useState(0)
 
+	// Get caller from provider context
+	const { caller } = useOpenCode()
+
 	// Queue for pending messages
 	const queueRef = useRef<QueuedMessage[]>([])
 	const isProcessingRef = useRef(false)
@@ -83,46 +87,32 @@ export function useSendMessage({
 	// Track session status to know when to process next message
 	const { running } = useSessionStatus(sessionId)
 
-	// Process a single message
-	// NOTE: We create the client fresh each time to pick up the latest
-	// server discovery from multiServerSSE. The session->port mapping
-	// updates dynamically as we receive SSE events.
+	/**
+	 * Process a single message via router caller
+	 *
+	 * NOTE: Caller uses the SDK client from context which picks up the latest
+	 * server discovery from multiServerSSE. The session→port mapping
+	 * updates dynamically as we receive SSE events.
+	 */
 	const processMessage = useCallback(
 		async (parts: Prompt, model?: ModelSelection) => {
-			// Create client fresh to get latest server routing
-			// Pass sessionId for session-specific routing (routes to the server that owns this session)
-			const client = createClient(directory, sessionId)
-
 			// Convert client parts to API format
 			const apiParts = convertToApiParts(parts, directory || "")
 
-			// Use promptAsync for fire-and-forget behavior
-			// Returns 204 immediately, SSE events will notify when complete
-			const response = await client.session.promptAsync({
-				path: { id: sessionId },
-				body: {
-					parts: apiParts,
-					model: model
-						? {
-								providerID: model.providerID,
-								modelID: model.modelID,
-							}
-						: undefined,
-				},
+			// Invoke session.promptAsync route via caller
+			// Returns void (fire-and-forget), SSE events will notify when complete
+			await caller("session.promptAsync", {
+				sessionId,
+				parts: apiParts,
+				model: model
+					? {
+							providerID: model.providerID,
+							modelID: model.modelID,
+						}
+					: undefined,
 			})
-
-			// Check if SDK returned an error in the response
-			if (response.error) {
-				const errorMessage =
-					typeof response.error === "object" && "message" in response.error
-						? String(response.error.message)
-						: String(response.error)
-				throw new Error(errorMessage)
-			}
-
-			// No response data to handle - promptAsync returns 204 void
 		},
-		[sessionId, directory],
+		[sessionId, directory, caller],
 	)
 
 	// Process next message from queue if session is idle

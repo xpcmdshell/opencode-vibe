@@ -132,7 +132,7 @@ describe("useMessages", () => {
 				})
 		})
 
-		expect(result.current[0].role).toBe("system")
+		expect(result.current[0]!.role).toBe("system")
 	})
 
 	it("returns empty array for sessions with no messages", () => {

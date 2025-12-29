@@ -118,10 +118,10 @@ describe("useMessagesWithParts", () => {
 		const { result } = renderHook(() => useMessagesWithParts(TEST_SESSION_ID))
 
 		expect(result.current).toHaveLength(1)
-		expect(result.current[0].info.id).toBe("msg-1")
-		expect(result.current[0].parts).toHaveLength(2)
-		expect(result.current[0].parts[0].id).toBe("part-1")
-		expect(result.current[0].parts[1].id).toBe("part-2")
+		expect(result.current[0]!.info.id).toBe("msg-1")
+		expect(result.current[0]!.parts).toHaveLength(2)
+		expect(result.current[0]!.parts[0]!.id).toBe("part-1")
+		expect(result.current[0]!.parts[1]!.id).toBe("part-2")
 	})
 
 	it("returns messages without parts when no parts exist", () => {
@@ -144,8 +144,8 @@ describe("useMessagesWithParts", () => {
 		const { result } = renderHook(() => useMessagesWithParts(TEST_SESSION_ID))
 
 		expect(result.current).toHaveLength(1)
-		expect(result.current[0].info.id).toBe("msg-1")
-		expect(result.current[0].parts).toEqual([])
+		expect(result.current[0]!.info.id).toBe("msg-1")
+		expect(result.current[0]!.parts).toEqual([])
 	})
 
 	it("only returns messages for the specified session", () => {
@@ -182,7 +182,7 @@ describe("useMessagesWithParts", () => {
 		const { result } = renderHook(() => useMessagesWithParts(TEST_SESSION_ID))
 
 		expect(result.current).toHaveLength(1)
-		expect(result.current[0].info.id).toBe("msg-1")
+		expect(result.current[0]!.info.id).toBe("msg-1")
 	})
 
 	it("updates reactively when store changes", () => {
@@ -223,7 +223,7 @@ describe("useMessagesWithParts", () => {
 			})
 		})
 
-		expect(result.current[0].parts).toHaveLength(1)
+		expect(result.current[0]!.parts).toHaveLength(1)
 	})
 
 	it("updates parts reactively when they change", () => {
@@ -258,7 +258,7 @@ describe("useMessagesWithParts", () => {
 		const { result } = renderHook(() => useMessagesWithParts(TEST_SESSION_ID))
 
 		// Access via type assertion since SDK Part is a union type
-		expect((result.current[0].parts[0] as any).text).toBe("Hello")
+		expect((result.current[0]!.parts[0] as any).text).toBe("Hello")
 
 		// Update the part (simulating streaming)
 		act(() => {
@@ -275,7 +275,7 @@ describe("useMessagesWithParts", () => {
 			})
 		})
 
-		expect((result.current[0].parts[0] as any).text).toBe("Hello World")
+		expect((result.current[0]!.parts[0] as any).text).toBe("Hello World")
 	})
 
 	it("does not re-render when store updates with same content but new reference", () => {
@@ -326,13 +326,13 @@ describe("useMessagesWithParts", () => {
 						...state.directories[TEST_DIRECTORY],
 						// Create new array references but same content
 						messages: {
-							...state.directories[TEST_DIRECTORY].messages,
+							...state.directories[TEST_DIRECTORY]!.messages,
 							[TEST_SESSION_ID]: [
-								...(state.directories[TEST_DIRECTORY].messages[TEST_SESSION_ID] || []),
+								...(state.directories[TEST_DIRECTORY]!.messages[TEST_SESSION_ID] || []),
 							],
 						},
 						parts: {
-							...state.directories[TEST_DIRECTORY].parts,
+							...state.directories[TEST_DIRECTORY]!.parts,
 						},
 					},
 				},

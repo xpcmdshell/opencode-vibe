@@ -159,8 +159,8 @@ describe("useSessionMessages logic", () => {
 			// Verify store state
 			const storeMessages = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, TEST_SESSION_ID)
 			expect(storeMessages).toHaveLength(2)
-			expect(storeMessages[0].id).toBe("msg_1")
-			expect(storeMessages[1].id).toBe("msg_2")
+			expect(storeMessages[0]!.id).toBe("msg_1")
+			expect(storeMessages[1]!.id).toBe("msg_2")
 		})
 
 		it("SSE events update store messages", () => {
@@ -200,9 +200,9 @@ describe("useSessionMessages logic", () => {
 			useOpencodeStore.getState().setMessages(TEST_DIRECTORY, TEST_SESSION_ID, unsortedMessages)
 
 			const storeMessages = useOpencodeStore.getState().getMessages(TEST_DIRECTORY, TEST_SESSION_ID)
-			expect(storeMessages[0].id).toBe("msg_1")
-			expect(storeMessages[1].id).toBe("msg_2")
-			expect(storeMessages[2].id).toBe("msg_3")
+			expect(storeMessages[0]!.id).toBe("msg_1")
+			expect(storeMessages[1]!.id).toBe("msg_2")
+			expect(storeMessages[2]!.id).toBe("msg_3")
 		})
 	})
 
