@@ -36,9 +36,9 @@
 
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
 import { servers } from "@opencode-vibe/core/api"
 import type { ServerInfo } from "@opencode-vibe/core/discovery"
+import { useFetch } from "./use-fetch"
 
 export interface UseServersReturn {
 	/** Array of discovered servers (always includes default) */
@@ -70,40 +70,15 @@ export interface UseCurrentServerReturn {
  * @returns Object with servers, loading, error, and refetch
  */
 export function useServers(): UseServersReturn {
-	const [serverList, setServerList] = useState<ServerInfo[]>([])
-	const [loading, setLoading] = useState(true)
-	const [error, setError] = useState<Error | null>(null)
-
-	const fetch = useCallback(() => {
-		setLoading(true)
-		setError(null)
-
-		servers
-			.discover()
-			.then((data: ServerInfo[]) => {
-				setServerList(data)
-				setError(null)
-			})
-			.catch((err: unknown) => {
-				// This should never happen (servers.discover() never fails)
-				const error = err instanceof Error ? err : new Error(String(err))
-				setError(error)
-				setServerList([])
-			})
-			.finally(() => {
-				setLoading(false)
-			})
-	}, [])
-
-	useEffect(() => {
-		fetch()
-	}, [fetch])
+	const { data, loading, error, refetch } = useFetch(() => servers.discover(), undefined, {
+		initialData: [],
+	})
 
 	return {
-		servers: serverList,
+		servers: data,
 		loading,
 		error,
-		refetch: fetch,
+		refetch,
 	}
 }
 
@@ -118,40 +93,15 @@ export function useServers(): UseServersReturn {
  * @returns Object with server, loading, error, and refetch
  */
 export function useCurrentServer(): UseCurrentServerReturn {
-	const [server, setServer] = useState<ServerInfo | null>(null)
-	const [loading, setLoading] = useState(true)
-	const [error, setError] = useState<Error | null>(null)
-
-	const fetch = useCallback(() => {
-		setLoading(true)
-		setError(null)
-
-		servers
-			.currentServer()
-			.then((data: ServerInfo) => {
-				setServer(data)
-				setError(null)
-			})
-			.catch((err: unknown) => {
-				// This should never happen (servers.currentServer() never fails)
-				const error = err instanceof Error ? err : new Error(String(err))
-				setError(error)
-				setServer(null)
-			})
-			.finally(() => {
-				setLoading(false)
-			})
-	}, [])
-
-	useEffect(() => {
-		fetch()
-	}, [fetch])
+	const { data, loading, error, refetch } = useFetch(() => servers.currentServer(), undefined, {
+		initialData: null,
+	})
 
 	return {
-		server,
+		server: data,
 		loading,
 		error,
-		refetch: fetch,
+		refetch,
 	}
 }
 

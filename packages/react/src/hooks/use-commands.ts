@@ -23,9 +23,10 @@
  * ```
  */
 
-import { useMemo, useCallback, useEffect, useState } from "react"
+import { useMemo, useCallback } from "react"
 import { commands as commandsApi } from "@opencode-vibe/core/api"
 import type { SlashCommand } from "../types/prompt"
+import { useFetch } from "./use-fetch"
 
 /**
  * Builtin slash commands
@@ -60,42 +61,30 @@ const BUILTIN_COMMANDS: SlashCommand[] = [
  * No longer requires caller from OpenCodeProvider context.
  */
 export function useCommands() {
-	const [customCommands, setCustomCommands] = useState<SlashCommand[]>([])
-	const [loading, setLoading] = useState(true)
-	const [error, setError] = useState<Error | null>(null)
-
 	// Fetch custom commands from API
-	useEffect(() => {
-		async function fetchCustomCommands() {
-			try {
-				setLoading(true)
-				setError(null)
+	const {
+		data: apiCommands,
+		loading,
+		error,
+	} = useFetch(() => commandsApi.list(), undefined, {
+		initialData: [],
+		onError: (err) => {
+			console.error("Failed to fetch custom commands:", err)
+		},
+	})
 
-				const response = await commandsApi.list()
-
-				// Map API response to SlashCommand format
-				const mapped: SlashCommand[] = response.map((cmd) => ({
-					id: `custom.${cmd.name}`,
-					trigger: cmd.name,
-					title: cmd.name,
-					description: cmd.description,
-					type: "custom" as const,
-				}))
-
-				setCustomCommands(mapped)
-			} catch (err) {
-				const error = err instanceof Error ? err : new Error(String(err))
-				setError(error)
-				console.error("Failed to fetch custom commands:", error)
-				// On error, set empty array so UI still works
-				setCustomCommands([])
-			} finally {
-				setLoading(false)
-			}
-		}
-
-		fetchCustomCommands()
-	}, [])
+	// Map API response to SlashCommand format
+	const customCommands = useMemo(
+		() =>
+			apiCommands.map((cmd) => ({
+				id: `custom.${cmd.name}`,
+				trigger: cmd.name,
+				title: cmd.name,
+				description: cmd.description,
+				type: "custom" as const,
+			})),
+		[apiCommands],
+	)
 
 	// Combine builtin + custom
 	const allCommands = useMemo(() => [...BUILTIN_COMMANDS, ...customCommands], [customCommands])

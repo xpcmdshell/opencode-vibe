@@ -32,9 +32,9 @@
 
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
 import { projects } from "@opencode-vibe/core/api"
 import type { Project } from "@opencode-vibe/core/atoms"
+import { useFetch } from "./use-fetch"
 
 export interface UseProjectsReturn {
 	/** Array of projects */
@@ -64,39 +64,15 @@ export interface UseCurrentProjectReturn {
  * @returns Object with projects, loading, error, and refetch
  */
 export function useProjects(): UseProjectsReturn {
-	const [projectList, setProjectList] = useState<Project[]>([])
-	const [loading, setLoading] = useState(true)
-	const [error, setError] = useState<Error | null>(null)
-
-	const fetch = useCallback(() => {
-		setLoading(true)
-		setError(null)
-
-		projects
-			.list()
-			.then((data: Project[]) => {
-				setProjectList(data)
-				setError(null)
-			})
-			.catch((err: unknown) => {
-				const error = err instanceof Error ? err : new Error(String(err))
-				setError(error)
-				setProjectList([])
-			})
-			.finally(() => {
-				setLoading(false)
-			})
-	}, [])
-
-	useEffect(() => {
-		fetch()
-	}, [fetch])
+	const { data, loading, error, refetch } = useFetch(() => projects.list(), undefined, {
+		initialData: [],
+	})
 
 	return {
-		projects: projectList,
+		projects: data,
 		loading,
 		error,
-		refetch: fetch,
+		refetch,
 	}
 }
 
@@ -106,39 +82,15 @@ export function useProjects(): UseProjectsReturn {
  * @returns Object with project, loading, error, and refetch
  */
 export function useCurrentProject(): UseCurrentProjectReturn {
-	const [project, setProject] = useState<Project | null>(null)
-	const [loading, setLoading] = useState(true)
-	const [error, setError] = useState<Error | null>(null)
-
-	const fetch = useCallback(() => {
-		setLoading(true)
-		setError(null)
-
-		projects
-			.current()
-			.then((data: Project | null) => {
-				setProject(data)
-				setError(null)
-			})
-			.catch((err: unknown) => {
-				const error = err instanceof Error ? err : new Error(String(err))
-				setError(error)
-				setProject(null)
-			})
-			.finally(() => {
-				setLoading(false)
-			})
-	}, [])
-
-	useEffect(() => {
-		fetch()
-	}, [fetch])
+	const { data, loading, error, refetch } = useFetch(() => projects.current(), undefined, {
+		initialData: null,
+	})
 
 	return {
-		project,
+		project: data,
 		loading,
 		error,
-		refetch: fetch,
+		refetch,
 	}
 }
 

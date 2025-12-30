@@ -2,6 +2,18 @@
  * React hooks for OpenCode
  */
 
+// === Generic Hooks ===
+export {
+	useFetch,
+	type UseFetchOptions,
+	type UseFetchReturn,
+} from "./use-fetch"
+export {
+	useSSEResource,
+	type UseSSEResourceOptions,
+	type UseSSEResourceReturn,
+} from "./use-sse-resource"
+
 // === Data Fetching ===
 export {
 	useSessionList,
@@ -60,6 +72,10 @@ export {
 	useMultiServerSSE,
 	type UseMultiServerSSEOptions,
 } from "./use-multi-server-sse"
+export {
+	useSSEState,
+	type UseSSEStateOptions,
+} from "./use-sse-state"
 export { useSubscription } from "./use-subscription"
 
 // === Subagents ===

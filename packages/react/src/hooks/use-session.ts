@@ -20,10 +20,10 @@
 
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useMemo } from "react"
 import { sessions } from "@opencode-vibe/core/api"
-import { multiServerSSE } from "@opencode-vibe/core/sse"
 import type { Session } from "@opencode-vibe/core/types"
+import { useSSEResource } from "./use-sse-resource"
 
 export interface UseSessionOptions {
 	/** Session ID to fetch */
@@ -46,71 +46,42 @@ export interface UseSessionReturn {
 /**
  * Hook to fetch a single session with real-time SSE updates
  *
+ * Uses useSSEResource internally for fetch + SSE pattern.
+ * Extracts single session from array result.
+ *
  * @param options - Options with sessionId and optional directory
  * @returns Object with session, loading, error, and refetch
  */
 export function useSession(options: UseSessionOptions): UseSessionReturn {
-	const [session, setSession] = useState<Session | null>(null)
-	const [loading, setLoading] = useState(true)
-	const [error, setError] = useState<Error | null>(null)
+	const { data, loading, error, refetch } = useSSEResource<Session>({
+		fetcher: async () => {
+			const session = await sessions.get(options.sessionId, options.directory)
+			// Wrap single result in array for useSSEResource
+			return session ? [session] : []
+		},
+		eventType: ["session.created", "session.updated"],
+		sessionIdFilter: options.sessionId,
+		getId: (session) => session.id,
+		initialData: [],
+		enabled: true,
+	})
 
-	// Track sessionId in ref to avoid stale closures in SSE callback
-	const sessionIdRef = useRef(options.sessionId)
-	sessionIdRef.current = options.sessionId
+	// Extract single session from array, filter out archived sessions
+	const session = useMemo(() => {
+		const firstSession = data[0] ?? null
 
-	const fetch = useCallback(() => {
-		setLoading(true)
-		setError(null)
+		// Handle archived sessions (treat as deleted)
+		if (firstSession?.time?.archived) {
+			return null
+		}
 
-		sessions
-			.get(options.sessionId, options.directory)
-			.then((data: Session | null) => {
-				setSession(data)
-				setError(null)
-			})
-			.catch((err: unknown) => {
-				const error = err instanceof Error ? err : new Error(String(err))
-				setError(error)
-				setSession(null)
-			})
-			.finally(() => {
-				setLoading(false)
-			})
-	}, [options.sessionId, options.directory])
-
-	// Initial fetch
-	useEffect(() => {
-		fetch()
-	}, [fetch])
-
-	// Subscribe to SSE events for real-time updates
-	useEffect(() => {
-		const unsubscribe = multiServerSSE.onEvent((event) => {
-			const { type, properties } = event.payload
-
-			// Handle session.created and session.updated events
-			if (type !== "session.created" && type !== "session.updated") return
-
-			const sessionData = properties.info as Session | undefined
-			if (!sessionData) return
-			if (sessionData.id !== sessionIdRef.current) return
-
-			// Handle archived sessions (treat as deleted)
-			if (sessionData.time?.archived) {
-				setSession(null)
-				return
-			}
-
-			setSession(sessionData)
-		})
-
-		return unsubscribe
-	}, []) // Empty deps - callback uses refs
+		return firstSession
+	}, [data])
 
 	return {
 		session,
 		loading,
 		error,
-		refetch: fetch,
+		refetch,
 	}
 }
