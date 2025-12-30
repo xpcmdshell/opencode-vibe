@@ -1115,19 +1115,33 @@ export function createSession(opts: CreateSessionOpts): Effect.Effect<Session, S
 
 ### Track 1: Core Extraction (Foundation)
 
-- [ ] Create `packages/core/src/utils/context-usage.ts` with tests
-- [ ] Create `packages/core/src/utils/message-parts.ts` with tests
-- [ ] Create `packages/core/src/utils/prompt-parsing.ts` with tests
-- [ ] Create `packages/core/src/utils/subagent-sync.ts` with tests
-- [ ] Create `packages/core/src/utils/session-status.ts` with tests
-- [ ] Create `packages/core/src/utils/mime-types.ts` with tests
-- [ ] Create `packages/core/src/utils/id-generation.ts` with tests
-- [ ] Update `packages/core/src/utils/index.ts` to re-export all
-- [ ] Update React hooks to import from core utils
-- [ ] Run `bun run test` - verify all tests pass
-- [ ] Run `bun run typecheck` - verify zero errors
+**Status: IN PROGRESS (in worktree, has type errors)**
+
+Worktree: `.swarm/worktrees/dx-overhaul` (20 commits ahead of main)
+
+- [x] Create `packages/core/src/utils/context-usage.ts` with tests ✅
+- [x] Create `packages/core/src/utils/message-parts.ts` with tests ✅ (has type errors in tests)
+- [x] Create `packages/core/src/utils/prompt-parsing.ts` with tests ✅
+- [x] Create `packages/core/src/utils/subagent-sync.ts` with tests ✅
+- [x] Create `packages/core/src/utils/session-status.ts` with tests ✅
+- [x] Create `packages/core/src/utils/mime-types.ts` with tests ✅
+- [x] Create `packages/core/src/utils/id-generation.ts` with tests ✅
+- [x] Update `packages/core/src/utils/index.ts` to re-export all ✅
+- [x] Update React hooks to import from core utils ✅
+- [ ] **BLOCKED:** Fix type errors in `message-parts.test.ts` (Object possibly undefined)
+- [ ] **BLOCKED:** Fix import error `@opencode-vibe/core/sse` not found
+- [ ] **BLOCKED:** Fix import error `@opencode-vibe/core/utils` not found in tests
+- [ ] Run `bun run test` - 7 test files failing, 57 passing
+- [ ] Run `bun run typecheck` - failing on core package
+
+**Blocking Issues (must fix before proceeding):**
+1. `message-parts.test.ts` lines 154-230: Add null checks or non-null assertions
+2. `use-multi-server-sse.ts`: Import path `@opencode-vibe/core/sse` doesn't exist
+3. `use-subagent-sync.ts`: Import path `@opencode-vibe/core/utils` not resolving in tests
 
 ### Track 2: Public API Reduction
+
+**Status: NOT STARTED**
 
 - [ ] Create `packages/react/src/hooks/internal/` directory
 - [ ] Move 20+ internal hooks to `internal/` directory
@@ -1140,6 +1154,8 @@ export function createSession(opts: CreateSessionOpts): Effect.Effect<Session, S
 - [ ] Update documentation to reflect new public API
 
 ### Phase 1: Cleanup (Week 1)
+
+**Status: NOT STARTED (blocked by Track 1)**
 
 - [ ] Delete `apps/web/src/react/` directory
 - [ ] Update 14+ files: `@/react` → `@opencode-vibe/react`
