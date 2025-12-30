@@ -1,6 +1,6 @@
 "use client"
 
-import { useCompactionState } from "@opencode-vibe/react"
+import { useCompactionState } from "@/react"
 import { Loader } from "@/components/ai-elements/loader"
 import { cn } from "@/lib/utils"
 

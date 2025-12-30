@@ -7,7 +7,7 @@
  * Uses Effect-based discovery hooks from @opencode-vibe/react.
  */
 
-import { useServersEffect } from "@opencode-vibe/react"
+import { useServersEffect } from "@opencode-vibe/react" // Effect-based hook - stays in package
 
 export function ServerStatus() {
 	const { servers, loading, error } = useServersEffect()

@@ -38,4 +38,11 @@ export {
 	type UseFileSearchOptions,
 	type UseFileSearchResult,
 } from "./use-file-search"
+export { useCommands } from "./use-commands"
 export { useMultiServerSSE } from "./use-multi-server-sse"
+export { useSubagentSync } from "./use-subagent-sync"
+export { useSubagent } from "./use-subagent"
+export { useOpencodeStore, type SessionStatus as SessionStatusType, type Part } from "./store"
+export { useLiveTime } from "./use-live-time"
+export { useCompactionState } from "./use-compaction-state"
+export { useContextUsage, formatTokens } from "./use-context-usage"

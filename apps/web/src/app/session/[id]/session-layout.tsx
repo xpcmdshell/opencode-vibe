@@ -4,11 +4,17 @@ import { useEffect, useState, createContext, useContext } from "react"
 import Link from "next/link"
 import type { UIMessage } from "ai"
 import { toast } from "sonner"
-import { OpenCodeProvider, useSession, useMessages, useSendMessage, useOpenCode } from "@/react"
-import { useOpencodeStore } from "@opencode-vibe/react"
-import { useMultiServerSSE } from "@opencode-vibe/react"
-import { useSessionStatus } from "@opencode-vibe/react"
-import { useSubagentSync } from "@opencode-vibe/react"
+import {
+	OpenCodeProvider,
+	useSession,
+	useMessages,
+	useSendMessage,
+	useOpenCode,
+	useSessionStatus,
+	useMultiServerSSE,
+	useSubagentSync,
+	useOpencodeStore,
+} from "@/react"
 import { NewSessionButton } from "./new-session-button"
 import { SessionMessages } from "./session-messages"
 import { PromptInput } from "@/components/prompt"

@@ -1,10 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useOpenCode } from "@/react"
-import { useOpencodeStore } from "@opencode-vibe/react"
-import { useMessages } from "@opencode-vibe/react"
-import { useMessagesWithParts } from "@opencode-vibe/react"
+import { useOpenCode, useOpencodeStore, useMessages, useMessagesWithParts } from "@/react"
 import { multiServerSSE } from "@opencode-vibe/core/sse"
 
 interface DebugPanelProps {
