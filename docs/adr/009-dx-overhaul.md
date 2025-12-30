@@ -97,11 +97,113 @@ export * from "@opencode-vibe/react"
 | **SSR via globalThis** | ✅ Zero client fetches | ❌ Client fetches | Slower hydration |
 | **Symbol-based markers** | ✅ No key conflicts | ❌ Reserved keys | Collision risk |
 
+#### 5. Bloated Public API (New Finding)
+
+**Problem:** `@opencode-vibe/react` exports 30+ hooks when uploadthing exports ~5.
+
+**Current exports (30+):**
+```typescript
+// All of these are PUBLIC API that must be documented and maintained
+useSSE, useMultiServerSSE, useMessages, useParts, useMessagesWithParts,
+useProjects, useCurrentProject, useCreateSession, useProvider, useSendMessage,
+useProviders, useFileSearch, useLiveTime, useCommands, useServers,
+useServersEffect, useCurrentServer, useSession, useSessionList,
+useSessionStatus, useSubagents, useSubagent, useContextUsage,
+useCompactionState, useSubagentSync, useFetch, useSSEResource,
+useSSEState, useSubscription, OpenCodeProvider, SSEProvider...
+```
+
+**Target exports (9):**
+```typescript
+// TIER 1: The One Hook (99% of users)
+useSession
+
+// TIER 2: Setup
+OpenCodeProvider
+
+// TIER 3: Power Users (escape hatches)
+useSessionList, useServers, useProviders, useSendMessage,
+useCreateSession, useFileSearch, useCommands
+```
+
+**Impact:**
+- **Documentation burden:** 30+ hooks to document vs 9
+- **Maintenance burden:** Breaking changes affect 30+ public APIs
+- **Cognitive load:** Users must choose from 30+ hooks
+- **Violates uploadthing pattern:** uploadthing has minimal public surface
+
+#### 6. Business Logic Trapped in React Hooks (New Finding)
+
+**Problem:** ~240 lines of pure business logic is trapped inside React hooks, making it:
+- Untestable without React
+- Unreusable in CLI/desktop apps
+- Harder to reason about
+
+**Logic that should be in `@opencode-vibe/core`:**
+
+| Logic | Current Location | Target Location | Lines |
+|-------|------------------|-----------------|-------|
+| Slash command parsing | `use-send-message.ts` | `core/utils/prompt-parsing.ts` | ~40 |
+| Token calculations | `use-context-usage.ts` | `core/utils/context-usage.ts` | ~50 |
+| Message-part joining | `use-messages-with-parts.ts` | `core/utils/message-parts.ts` | ~10 |
+| Message-part queue | `use-subagent-sync.ts` | `core/utils/subagent-sync.ts` | ~60 |
+| MIME type mapping | `prompt-api.ts` | `core/utils/mime-types.ts` | ~30 |
+| Part ID generation | `prompt-api.ts` | `core/utils/id-generation.ts` | ~10 |
+| Cooldown state machine | `use-session-status.ts` | `core/utils/session-status.ts` | ~40 |
+
+**Good news:** `sse-utils.ts` is already extracted correctly - it's the template to follow.
+
+**Impact:**
+- CLI can't reuse token calculation logic
+- Desktop app can't reuse slash command parsing
+- Tests require React testing infrastructure for pure functions
+
 ---
 
 ## Decision
 
-**We will overhaul OpenCode's DX in 3 phases to achieve uploadthing-level simplicity.**
+**We will overhaul OpenCode Vibe's DX in 5 tracks to achieve uploadthing-level simplicity.**
+
+### The Five Tracks
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DX OVERHAUL TRACKS                       │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  TRACK 1: Core Extraction (Foundation)                      │
+│  ─────────────────────────────────────                      │
+│  Extract ~240 lines of business logic to core               │
+│  7 new files in packages/core/src/utils/                    │
+│  Enables CLI/desktop reuse, pure function testing           │
+│  Effort: 4-5 hours                                          │
+│                                                             │
+│  TRACK 2: Public API Reduction                              │
+│  ─────────────────────────────                              │
+│  30+ exports → 9 exports                                    │
+│  Move internal hooks to hooks/internal/                     │
+│  Effort: 2-3 hours                                          │
+│                                                             │
+│  TRACK 3: Cleanup (Phase 1)                                 │
+│  ─────────────────────────                                  │
+│  Delete zombie re-export layer, dead code                   │
+│  ONE import path                                            │
+│  Effort: 2 days                                             │
+│                                                             │
+│  TRACK 4: Facade Hook (Phase 2)                             │
+│  ─────────────────────────────                              │
+│  Single useSession() wrapping internals                     │
+│  Depends on Track 1, 2, 3                                   │
+│  Effort: 1 week                                             │
+│                                                             │
+│  TRACK 5: Store + Provider Removal (Phase 3-4)              │
+│  ─────────────────────────────────────────────              │
+│  Zustand store, auto-discovery, SSR plugin                  │
+│  Complete uploadthing parity                                │
+│  Effort: 3 weeks                                            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Target DX (North Star)
 
@@ -133,6 +235,260 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
 ---
 
 ## Migration Plan
+
+### Track 1: Core Extraction (Foundation - 4-5 hours)
+
+**Goal:** Extract pure business logic from React hooks to `@opencode-vibe/core` for reuse in CLI/desktop.
+
+#### 1.1 Token Calculation Utilities
+
+**New file:** `packages/core/src/utils/context-usage.ts`
+
+```typescript
+export interface TokenData {
+  input: number
+  output: number
+  cached: number
+}
+
+export interface ContextUsage {
+  used: number
+  limit: number
+  percentage: number
+  remaining: number
+  isNearLimit: boolean
+  tokens: TokenData
+}
+
+/**
+ * Extract token data from SSE event payload
+ */
+export function extractTokensFromEvent(event: GlobalEvent): TokenData | null
+
+/**
+ * Calculate derived context usage state from token data
+ */
+export function calculateContextUsage(tokens: TokenData, limit?: number): ContextUsage
+
+/**
+ * Format token count with K/M suffix (e.g., "150K", "1.2M")
+ */
+export function formatTokens(n: number): string
+```
+
+#### 1.2 Message-Part Joining
+
+**New file:** `packages/core/src/utils/message-parts.ts`
+
+```typescript
+export interface OpenCodeMessage {
+  info: Message
+  parts: Part[]
+}
+
+/**
+ * Join messages with their associated parts
+ * 
+ * Optimized: O(n + m) using Map instead of O(n*m) with filter
+ */
+export function joinMessagesWithParts(
+  messages: Message[],
+  parts: Part[]
+): OpenCodeMessage[]
+```
+
+#### 1.3 Slash Command Parsing
+
+**New file:** `packages/core/src/utils/prompt-parsing.ts`
+
+```typescript
+export type ParsedCommand = 
+  | { isCommand: false }
+  | { isCommand: true; commandName: string; arguments: string; type: "custom" | "builtin" }
+
+/**
+ * Extract text content from prompt parts
+ */
+export function extractTextFromPrompt(parts: Prompt): string
+
+/**
+ * Parse slash command from prompt parts
+ */
+export function parseSlashCommand(
+  parts: Prompt,
+  findCommand: (name: string) => { type: "custom" | "builtin" } | undefined
+): ParsedCommand
+```
+
+#### 1.4 Message-Part Queue (Out-of-Order Handling)
+
+**New file:** `packages/core/src/utils/subagent-sync.ts`
+
+```typescript
+/**
+ * Manages out-of-order message/part delivery
+ * 
+ * Handles the case where parts arrive before their parent message.
+ * Queues parts until the message arrives, then flushes them.
+ */
+export class MessagePartQueue {
+  registerMessage(messageId: string, sessionId: string): Part[]
+  getSessionIdOrQueue(part: Part): string | undefined
+  clear(): void
+}
+```
+
+#### 1.5 Session Status State Machine
+
+**New file:** `packages/core/src/utils/session-status.ts`
+
+```typescript
+/**
+ * State machine for session status with cooldown
+ * 
+ * Keeps session marked as "running" for a cooldown period after
+ * it becomes idle, making the indicator feel more natural.
+ */
+export class SessionStatusMachine {
+  constructor(cooldownMs?: number)
+  handleStatusChange(status: "busy" | "idle", onRunningChange: (running: boolean) => void): void
+  dispose(): void
+  isRunning(): boolean
+}
+```
+
+#### 1.6 MIME Type Utilities
+
+**New file:** `packages/core/src/utils/mime-types.ts`
+
+```typescript
+export const MIME_TYPES: Record<string, string>
+
+/**
+ * Get MIME type from file extension
+ */
+export function getMimeType(ext: string): string
+
+/**
+ * Get MIME type from filename
+ */
+export function getMimeTypeFromFilename(filename: string): string
+```
+
+#### 1.7 ID Generation
+
+**New file:** `packages/core/src/utils/id-generation.ts`
+
+```typescript
+/**
+ * ID generator with counter-based uniqueness
+ */
+export class IdGenerator {
+  constructor(prefix: string)
+  next(): string
+  reset(): void
+}
+
+export const partIdGenerator: IdGenerator
+export function generatePartId(): string
+```
+
+**Benefits:**
+- ✅ Testable without React - pure functions with unit tests
+- ✅ Reusable in CLI - CLI can use same token calculation
+- ✅ Reusable in desktop - Tauri app can use same logic
+- ✅ ~240 lines extracted from React layer
+
+**Effort:** 4-5 hours (with tests)
+**Risk:** LOW (pure functions, easy to test)
+**Impact:** Enables cleaner hooks, CLI/desktop reuse
+
+---
+
+### Track 2: Public API Reduction (2-3 hours)
+
+**Goal:** Reduce public API from 30+ exports to 9 exports.
+
+#### 2.1 New Directory Structure
+
+```
+packages/react/src/hooks/
+├── index.ts              # PUBLIC exports only (9 hooks)
+├── internal/             # INTERNAL hooks (not exported)
+│   ├── use-messages.ts
+│   ├── use-parts.ts
+│   ├── use-messages-with-parts.ts
+│   ├── use-session-status.ts
+│   ├── use-context-usage.ts
+│   ├── use-compaction-state.ts
+│   ├── use-subagent-sync.ts
+│   ├── use-subagent.ts
+│   ├── use-subagents.ts
+│   ├── use-sse.ts
+│   ├── use-multi-server-sse.ts
+│   ├── use-subscription.ts
+│   ├── use-fetch.ts
+│   ├── use-sse-resource.ts
+│   ├── use-sse-state.ts
+│   └── use-live-time.ts
+├── use-session.ts        # The One Hook (facade)
+├── use-session-list.ts   # Session picker UI
+├── use-servers.ts        # Multi-server escape hatch
+├── use-providers.ts      # Model picker UI
+├── use-send-message.ts   # Standalone prompt input
+├── use-create-session.ts # New session button
+├── use-file-search.ts    # @ mentions UI
+└── use-commands.ts       # / commands UI
+```
+
+#### 2.2 New Public API
+
+```typescript
+// packages/react/src/index.ts
+
+// === THE ONE HOOK (99% of users) ===
+export { useSession, type UseSessionReturn } from "./hooks/use-session"
+
+// === SETUP ===
+export { OpenCodeProvider, type OpenCodeProviderProps } from "./providers"
+
+// === ESCAPE HATCHES (power users) ===
+export { useSessionList } from "./hooks/use-session-list"
+export { useServers, useCurrentServer } from "./hooks/use-servers"
+export { useProviders } from "./hooks/use-providers"
+
+// === ACTIONS ===
+export { useSendMessage } from "./hooks/use-send-message"
+export { useCreateSession } from "./hooks/use-create-session"
+
+// === UI HELPERS ===
+export { useFileSearch } from "./hooks/use-file-search"
+export { useCommands } from "./hooks/use-commands"
+
+// === TYPES ===
+export type { Session, Message, Part } from "@opencode-vibe/core/types"
+```
+
+#### 2.3 Comparison
+
+| Metric | Before | After | Reduction |
+|--------|--------|-------|-----------|
+| **Exported hooks** | 30+ | 9 | 70% |
+| **Documentation pages** | 30+ | 9 | 70% |
+| **Breaking change surface** | 30+ APIs | 9 APIs | 70% |
+| **User decision points** | "Which of 30 hooks?" | "Use useSession" | 96% |
+
+**Benefits:**
+- ✅ Matches uploadthing's minimal surface area
+- ✅ Internal hooks can change without breaking consumers
+- ✅ Documentation is manageable (9 pages vs 30+)
+- ✅ Clear "happy path" (useSession) vs escape hatches
+
+**Effort:** 2-3 hours
+**Risk:** MEDIUM (requires updating imports in web app)
+**Impact:** Dramatically simpler public API
+
+---
 
 ### Phase 1: Cleanup (Immediate - 2 days)
 
@@ -722,6 +1078,32 @@ export function createSession(opts: CreateSessionOpts): Effect.Effect<Session, S
 
 ## Migration Checklist
 
+### Track 1: Core Extraction (Foundation)
+
+- [ ] Create `packages/core/src/utils/context-usage.ts` with tests
+- [ ] Create `packages/core/src/utils/message-parts.ts` with tests
+- [ ] Create `packages/core/src/utils/prompt-parsing.ts` with tests
+- [ ] Create `packages/core/src/utils/subagent-sync.ts` with tests
+- [ ] Create `packages/core/src/utils/session-status.ts` with tests
+- [ ] Create `packages/core/src/utils/mime-types.ts` with tests
+- [ ] Create `packages/core/src/utils/id-generation.ts` with tests
+- [ ] Update `packages/core/src/utils/index.ts` to re-export all
+- [ ] Update React hooks to import from core utils
+- [ ] Run `bun run test` - verify all tests pass
+- [ ] Run `bun run typecheck` - verify zero errors
+
+### Track 2: Public API Reduction
+
+- [ ] Create `packages/react/src/hooks/internal/` directory
+- [ ] Move 20+ internal hooks to `internal/` directory
+- [ ] Update internal hook imports to relative paths
+- [ ] Update `packages/react/src/hooks/index.ts` to export only 9 hooks
+- [ ] Update `packages/react/src/index.ts` to match new structure
+- [ ] Update `apps/web/` imports to use public API only
+- [ ] Run `bun run typecheck` - verify zero errors
+- [ ] Run `bun run test` - verify all tests pass
+- [ ] Update documentation to reflect new public API
+
 ### Phase 1: Cleanup (Week 1)
 
 - [ ] Delete `apps/web/src/react/` directory
@@ -869,13 +1251,26 @@ export function SessionLayout({ sessionId, directory }) {
 
 ## Conclusion
 
-The current DX is 10x more complex than industry benchmarks. This overhaul brings OpenCode to uploadthing-level simplicity through:
+The current DX is 10x more complex than industry benchmarks. This overhaul brings OpenCode Vibe to uploadthing-level simplicity through:
 
-1. **Phase 1 (2 days):** Delete zombie layer, clean up lib/, ONE import path
-2. **Phase 2 (1 week):** Facade hook reduces 11 hooks → 1 hook
-3. **Phase 3 (2 weeks):** Store-based implementation eliminates ALL duplicates
-4. **Phase 4 (1 week):** Remove provider requirement, complete uploadthing parity
+1. **Track 1 (4-5 hours):** Extract ~240 lines of business logic to core - enables CLI/desktop reuse
+2. **Track 2 (2-3 hours):** Reduce public API from 30+ exports to 9 - matches uploadthing surface area
+3. **Phase 1 (2 days):** Delete zombie layer, clean up lib/, ONE import path
+4. **Phase 2 (1 week):** Facade hook reduces 11 hooks → 1 hook
+5. **Phase 3 (2 weeks):** Store-based implementation eliminates ALL duplicates
+6. **Phase 4 (1 week):** Remove provider requirement, complete uploadthing parity
 
-**Bottom line:** From 150 lines + 11 hooks → 15 lines + 1 hook. **90% reduction in complexity.**
+**Key metrics:**
+
+| Metric | Before | After | Reduction |
+|--------|--------|-------|-----------|
+| Lines to render session | 150 | 15 | 90% |
+| Hooks per session page | 11 | 1 | 91% |
+| Public API exports | 30+ | 9 | 70% |
+| Business logic in React | ~240 lines | 0 | 100% |
+| API call duplicates | 3x | 1x | 67% |
+| SSE subscriptions | 6 | 1 | 83% |
+
+**Bottom line:** From 150 lines + 11 hooks + 30 exports → 15 lines + 1 hook + 9 exports.
 
 The path forward is clear. The patterns are proven (uploadthing). The benefits are massive. Let's ship it.
