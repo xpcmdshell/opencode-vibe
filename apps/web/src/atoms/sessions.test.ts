@@ -8,7 +8,7 @@
  * - Factory pattern for testability
  */
 
-import { describe, expect, it, mock } from "bun:test"
+import { describe, expect, it, vi } from "vitest"
 import type { Session } from "../react/store"
 
 /**
@@ -33,7 +33,7 @@ function createMockSession(overrides?: Partial<Session>): Session {
 function createMockClient(sessions: Session[] = []) {
 	return {
 		session: {
-			list: mock(() => Promise.resolve({ data: sessions })),
+			list: vi.fn(() => Promise.resolve({ data: sessions })),
 		},
 	}
 }
@@ -59,7 +59,7 @@ describe("session list hook behavior", () => {
 	it("returns empty array on error", async () => {
 		const mockClient = {
 			session: {
-				list: mock(() => Promise.reject(new Error("Network error"))),
+				list: vi.fn(() => Promise.reject(new Error("Network error"))),
 			},
 		}
 

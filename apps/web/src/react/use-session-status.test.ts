@@ -17,7 +17,7 @@ globalThis.document = window.document
 // @ts-ignore - happy-dom types don't perfectly match DOM types, but work at runtime
 globalThis.window = window
 
-import { describe, it, expect, beforeEach, mock, afterAll } from "bun:test"
+import { describe, it, expect, beforeEach, vi, afterAll } from "vitest"
 import { renderHook, act } from "@testing-library/react"
 import { useOpencodeStore } from "./store"
 
@@ -27,7 +27,7 @@ mock.module("./provider", () => ({
 		directory: "/test",
 		url: "http://localhost:4056",
 		ready: true,
-		sync: mock(() => Promise.resolve()),
+		sync: vi.fn(() => Promise.resolve()),
 	}),
 	OpenCodeProvider: ({ children }: { children: any }) => children,
 }))

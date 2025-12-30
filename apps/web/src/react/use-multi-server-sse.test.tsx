@@ -11,7 +11,7 @@ globalThis.document = window.document
 globalThis.window = window
 
 import { renderHook, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, test, mock } from "bun:test"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 import { useMultiServerSSE } from "./use-multi-server-sse"
 import { useOpencodeStore } from "./store"
 import { multiServerSSE } from "@/core/multi-server-sse"
@@ -22,9 +22,9 @@ type EventCallback = (event: {
 }) => void
 
 // Mock the multiServerSSE singleton
-const startMock = mock(() => {})
-const stopMock = mock(() => {})
-const onEventMock = mock((_cb: EventCallback) => mock(() => {}))
+const startMock = vi.fn(() => {})
+const stopMock = vi.fn(() => {})
+const onEventMock = vi.fn((_cb: EventCallback) => vi.fn(() => {}))
 
 Object.assign(multiServerSSE, {
 	start: startMock,
@@ -64,7 +64,7 @@ describe("useMultiServerSSE", () => {
 		// Capture the callback passed to onEvent
 		onEventMock.mockImplementation((cb: EventCallback) => {
 			eventCallback = cb
-			return mock(() => {})
+			return vi.fn(() => {})
 		})
 
 		renderHook(() => useMultiServerSSE())
@@ -94,7 +94,7 @@ describe("useMultiServerSSE", () => {
 
 		onEventMock.mockImplementation((cb: EventCallback) => {
 			eventCallback = cb
-			return mock(() => {})
+			return vi.fn(() => {})
 		})
 
 		renderHook(() => useMultiServerSSE())
@@ -123,7 +123,7 @@ describe("useMultiServerSSE", () => {
 
 		onEventMock.mockImplementation((cb: EventCallback) => {
 			eventCallback = cb
-			return mock(() => {})
+			return vi.fn(() => {})
 		})
 
 		renderHook(() => useMultiServerSSE())
@@ -164,7 +164,7 @@ describe("useMultiServerSSE", () => {
 
 		onEventMock.mockImplementation((cb: EventCallback) => {
 			eventCallback = cb
-			return mock(() => {})
+			return vi.fn(() => {})
 		})
 
 		renderHook(() => useMultiServerSSE())
@@ -201,7 +201,7 @@ describe("useMultiServerSSE", () => {
 	})
 
 	test("unsubscribes on unmount but keeps singleton running", () => {
-		const unsubscribeMock = mock(() => {})
+		const unsubscribeMock = vi.fn(() => {})
 		onEventMock.mockReturnValue(unsubscribeMock)
 
 		const { unmount } = renderHook(() => useMultiServerSSE())

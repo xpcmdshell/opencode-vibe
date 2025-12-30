@@ -9,7 +9,7 @@
  * 5. Test click handlers
  */
 
-import { describe, it, expect, vi } from "bun:test"
+import { describe, it, expect, vi } from "vitest"
 import { render, fireEvent } from "@testing-library/react"
 import { JSDOM } from "jsdom"
 import { Autocomplete } from "./Autocomplete"

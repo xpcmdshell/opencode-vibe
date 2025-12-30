@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from "bun:test"
+import { describe, test, expect, beforeEach } from "vitest"
 import { usePromptStore } from "./prompt-store"
 import type { Prompt, SlashCommand } from "../types/prompt"
 

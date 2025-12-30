@@ -2,7 +2,7 @@
  * Tests for createOpencodeRoute() fluent API
  * TDD: RED phase - tests written first
  */
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect } from "vitest"
 import { Schema } from "effect"
 import { createOpencodeRoute } from "./builder"
 import type { Route } from "./types"

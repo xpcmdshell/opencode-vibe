@@ -5,7 +5,7 @@
  * Uses pure function testing without React rendering.
  */
 
-import { describe, test, expect } from "bun:test"
+import { describe, test, expect } from "vitest"
 
 // Extract types and calculation function from context-usage module
 type OpenCodeMessage = {

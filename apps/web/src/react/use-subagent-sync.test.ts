@@ -6,7 +6,7 @@
  */
 
 // CRITICAL: Clear any mocks from other test files
-import { mock } from "bun:test"
+import { mock } from "vitest"
 mock.restore()
 
 // Set up DOM environment for React Testing Library
@@ -17,7 +17,7 @@ globalThis.document = window.document
 // @ts-ignore - happy-dom types don't perfectly match DOM types, but work at runtime
 globalThis.window = window
 
-import { describe, test, expect, beforeEach, afterAll } from "bun:test"
+import { describe, test, expect, beforeEach, afterAll } from "vitest"
 import { renderHook } from "@testing-library/react"
 import { useSubagentStore } from "@/stores/subagent-store"
 import type { GlobalEvent } from "@opencode-ai/sdk/client"
@@ -28,7 +28,7 @@ const originalSubscribeImpl = (eventType: string, callback: any) => {
 	subscriptions.push({ eventType, callback })
 	return () => {} // Unsubscribe function
 }
-const mockSubscribe = mock(originalSubscribeImpl)
+const mockSubscribe = vi.fn(originalSubscribeImpl)
 
 mock.module("./use-sse", () => ({
 	useSSE: () => ({
@@ -588,7 +588,7 @@ describe("useSubagentSync", () => {
 		})
 
 		test("calls unsubscribe on cleanup", () => {
-			const unsubscribeMock = mock(() => {})
+			const unsubscribeMock = vi.fn(() => {})
 			mockSubscribe.mockImplementation(() => unsubscribeMock)
 
 			const { unmount } = renderHook(() => useSubagentSync(parentSessionId))

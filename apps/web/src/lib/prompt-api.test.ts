@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect } from "vitest"
 import { convertToApiParts } from "./prompt-api"
 import type { Prompt } from "@/types/prompt"
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it } from "vitest"
 import { type ServerInfo, getServerForDirectory, getServerForSession } from "./server-routing"
 
 const DEFAULT_SERVER_URL = "http://localhost:4056"

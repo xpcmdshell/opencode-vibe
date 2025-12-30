@@ -2,7 +2,7 @@
  * Tests for OpenCode client factory
  */
 
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it } from "vitest"
 import { createClient, OPENCODE_URL } from "./client"
 
 describe("createClient", () => {

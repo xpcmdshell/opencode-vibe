@@ -5,7 +5,7 @@
  * Uses mock EventSource to avoid real network connections.
  */
 
-import { describe, expect, it, beforeEach, mock } from "bun:test"
+import { describe, expect, it, beforeEach, vi } from "vitest"
 import { Effect, Stream, Schedule, Duration, Exit, Layer } from "effect"
 import type { GlobalEvent } from "@opencode-ai/sdk/client"
 

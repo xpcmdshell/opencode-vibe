@@ -16,7 +16,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import type { Message, Part } from "@/react/store"
+import type { Message, Part } from "@opencode-vibe/react"
 
 /**
  * Subagent session state

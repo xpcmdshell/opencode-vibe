@@ -7,7 +7,7 @@ globalThis.document = window.document
 globalThis.window = window
 
 import { renderHook, waitFor } from "@testing-library/react"
-import { describe, expect, test, mock, beforeEach } from "bun:test"
+import { describe, expect, test, vi, beforeEach } from "vitest"
 import { useProviders } from "./use-providers"
 
 // Mock providers in SDK format (models as dictionary)
@@ -52,12 +52,12 @@ const mockProviders = [
 
 // Mock the useOpenCode hook (default mock, overridden per-test)
 mock.module("./provider", () => ({
-	useOpenCode: mock(() => ({
+	useOpenCode: vi.fn(() => ({
 		url: "http://localhost:3000",
 		directory: "/test/directory",
 		ready: true,
-		sync: mock(() => Promise.resolve()),
-		caller: mock(async () => ({
+		sync: vi.fn(() => Promise.resolve()),
+		caller: vi.fn(async () => ({
 			all: mockProvidersSDK,
 			default: mockProvidersSDK[0],
 			connected: [],
@@ -71,18 +71,18 @@ describe("useProviders", () => {
 	})
 
 	test("should fetch providers on mount", async () => {
-		const mockCaller = mock(async () => ({
+		const mockCaller = vi.fn(async () => ({
 			all: mockProvidersSDK,
 			default: mockProvidersSDK[0],
 			connected: [],
 		}))
 
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				url: "http://localhost:3000",
 				directory: "/test/directory",
 				ready: true,
-				sync: mock(() => Promise.resolve()),
+				sync: vi.fn(() => Promise.resolve()),
 				caller: mockCaller,
 			})),
 		}))
@@ -105,16 +105,16 @@ describe("useProviders", () => {
 
 	test("should handle errors", async () => {
 		const mockError = new Error("Failed to fetch providers")
-		const mockCaller = mock(async () => {
+		const mockCaller = vi.fn(async () => {
 			throw mockError
 		})
 
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				url: "http://localhost:3000",
 				directory: "/test/directory",
 				ready: true,
-				sync: mock(() => Promise.resolve()),
+				sync: vi.fn(() => Promise.resolve()),
 				caller: mockCaller,
 			})),
 		}))
@@ -131,18 +131,18 @@ describe("useProviders", () => {
 	})
 
 	test("should call provider.list route via caller", async () => {
-		const mockCaller = mock(async () => ({
+		const mockCaller = vi.fn(async () => ({
 			all: mockProvidersSDK,
 			default: mockProvidersSDK[0],
 			connected: [],
 		}))
 
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				url: "http://localhost:3000",
 				directory: "/test/directory",
 				ready: true,
-				sync: mock(() => Promise.resolve()),
+				sync: vi.fn(() => Promise.resolve()),
 				caller: mockCaller,
 			})),
 		}))
@@ -155,18 +155,18 @@ describe("useProviders", () => {
 	})
 
 	test("should call provider.list only once on mount", async () => {
-		const mockCaller = mock(async () => ({
+		const mockCaller = vi.fn(async () => ({
 			all: mockProvidersSDK,
 			default: mockProvidersSDK[0],
 			connected: [],
 		}))
 
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				url: "http://localhost:3000",
 				directory: "/test/directory",
 				ready: true,
-				sync: mock(() => Promise.resolve()),
+				sync: vi.fn(() => Promise.resolve()),
 				caller: mockCaller,
 			})),
 		}))

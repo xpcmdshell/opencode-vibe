@@ -34,8 +34,8 @@ import {
 	detectAtTrigger,
 	detectSlashTrigger,
 } from "@/lib/prompt-parsing"
-import { useFileSearch } from "@/react/use-file-search"
-import { useCommands } from "@/react/use-commands"
+import { useFileSearch } from "@opencode-vibe/react"
+import { useCommands } from "@opencode-vibe/react"
 import { Autocomplete } from "./Autocomplete"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -101,7 +101,7 @@ export function PromptInput({
 		} else if (autocomplete.type === "command") {
 			const commands = getSlashCommands()
 			// Filter by query
-			const filtered = commands.filter((cmd) => cmd.trigger.startsWith(autocomplete.query))
+			const filtered = commands.filter((cmd: any) => cmd.trigger.startsWith(autocomplete.query))
 			setAutocompleteItems(filtered)
 		}
 	}, [autocomplete.type, autocomplete.query, files, getSlashCommands, setAutocompleteItems])

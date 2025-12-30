@@ -10,8 +10,8 @@
  * not full component rendering tests (which would require DOM setup).
  */
 
-import { describe, test, expect, beforeEach, mock } from "bun:test"
-import { useOpencodeStore, type Session as StoreSession, type Message } from "@/react/store"
+import { describe, test, expect, beforeEach, vi } from "vitest"
+import { useOpencodeStore, type Session as StoreSession, type Message } from "@opencode-vibe/react"
 
 // Test session data matching store type
 const mockStoreSession: StoreSession = {

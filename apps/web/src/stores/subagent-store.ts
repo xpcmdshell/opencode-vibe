@@ -12,7 +12,7 @@
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
 import { enableMapSet } from "immer"
-import type { Message, Part } from "@/react/store"
+import type { Message, Part } from "@opencode-vibe/react"
 
 // Enable Immer MapSet plugin for Set support
 enableMapSet()
@@ -123,7 +123,7 @@ export const useSubagentStore = create<SubagentState>()(
 			set((state) => {
 				const session = state.sessions[sessionId]
 				if (session) {
-					const idx = session.messages.findIndex((m) => m.id === message.id)
+					const idx = session.messages.findIndex((m: any) => m.id === message.id)
 					if (idx !== -1) {
 						session.messages[idx] = message
 					}
@@ -145,7 +145,7 @@ export const useSubagentStore = create<SubagentState>()(
 			set((state) => {
 				const session = state.sessions[sessionId]
 				if (session && session.parts[messageId]) {
-					const idx = session.parts[messageId].findIndex((p) => p.id === part.id)
+					const idx = session.parts[messageId].findIndex((p: any) => p.id === part.id)
 					if (idx !== -1) {
 						session.parts[messageId][idx] = part
 					}

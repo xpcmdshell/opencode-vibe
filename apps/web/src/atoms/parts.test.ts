@@ -5,9 +5,9 @@
  * Following TDD: Write tests first, implement to make them pass.
  */
 
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect } from "vitest"
 import { Binary } from "@/lib/binary"
-import type { Part } from "@/react/store"
+import type { Part } from "@opencode-vibe/react"
 
 /**
  * Factory for creating test parts with minimal fields

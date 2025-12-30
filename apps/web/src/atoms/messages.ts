@@ -19,7 +19,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/core/client"
 import { Binary } from "@/lib/binary"
-import type { Message } from "@/react/store"
+import type { Message } from "@opencode-vibe/react"
 import type { GlobalEvent } from "@opencode-ai/sdk/client"
 
 /**

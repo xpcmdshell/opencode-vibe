@@ -12,6 +12,8 @@
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@opencode-vibe/react": "workspace:*",
+		"@opencode-vibe/router": "workspace:*",
 		"@opencode-ai/sdk": "^1.0.203",
 		"@radix-ui/react-collapsible": "^1.1.12",
 		"@radix-ui/react-dialog": "^1.1.15",

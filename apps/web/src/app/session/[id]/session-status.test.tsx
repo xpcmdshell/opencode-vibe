@@ -19,7 +19,7 @@ global.document = window.document as any
 global.window = window as any
 global.navigator = window.navigator as any
 
-import { describe, it, expect, beforeEach, mock, afterAll } from "bun:test"
+import { describe, it, expect, beforeEach, vi, afterAll } from "vitest"
 import { render, act } from "@testing-library/react"
 import type { GlobalEvent } from "@opencode-ai/sdk/client"
 
@@ -27,13 +27,13 @@ import type { GlobalEvent } from "@opencode-ai/sdk/client"
 type SubscribeCallback = (event: any) => void
 const subscribeCallbacks = new Map<string, Set<SubscribeCallback>>()
 let mockUnsubscribeFns: ReturnType<typeof mock>[] = []
-const mockSubscribe = mock((eventType: string, callback: SubscribeCallback) => {
+const mockSubscribe = vi.fn((eventType: string, callback: SubscribeCallback) => {
 	if (!subscribeCallbacks.has(eventType)) {
 		subscribeCallbacks.set(eventType, new Set())
 	}
 	subscribeCallbacks.get(eventType)!.add(callback)
 
-	const unsubscribe = mock(() => {
+	const unsubscribe = vi.fn(() => {
 		subscribeCallbacks.get(eventType)?.delete(callback)
 	})
 	mockUnsubscribeFns.push(unsubscribe)

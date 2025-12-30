@@ -5,7 +5,7 @@
  * Focus: provider list fetching, loading states, error handling.
  */
 
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it } from "vitest"
 import type { Provider } from "./providers"
 
 /**

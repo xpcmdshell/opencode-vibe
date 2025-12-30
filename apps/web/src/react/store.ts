@@ -197,6 +197,9 @@ type OpencodeActions = {
 		directory: string,
 		modelID: string,
 	) => { context: number; output: number } | undefined
+
+	// Testing utilities
+	_reset: () => void
 }
 
 /**
@@ -812,6 +815,11 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 				})
 			}
 			get().handleEvent(event.directory, event.payload)
+		},
+
+		// Testing utilities - reset store to initial state
+		_reset: () => {
+			set({ directories: {} })
 		},
 	})),
 )

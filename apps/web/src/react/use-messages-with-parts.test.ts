@@ -8,7 +8,7 @@
  */
 
 // CRITICAL: Clear any mocks from other test files
-import { mock } from "bun:test"
+import { mock } from "vitest"
 mock.restore()
 
 // Set up DOM environment for React Testing Library
@@ -19,7 +19,7 @@ globalThis.document = window.document
 // @ts-ignore - happy-dom types don't perfectly match DOM types, but work at runtime
 globalThis.window = window
 
-import { describe, it, expect, beforeEach, afterAll } from "bun:test"
+import { describe, it, expect, beforeEach, afterAll } from "vitest"
 import { renderHook, act } from "@testing-library/react"
 import { useOpencodeStore, type Message, type Part } from "./store"
 
@@ -32,7 +32,7 @@ mock.module("./provider", () => ({
 		directory: TEST_DIRECTORY,
 		url: "http://localhost:4056",
 		ready: true,
-		sync: mock(() => Promise.resolve()),
+		sync: vi.fn(() => Promise.resolve()),
 	}),
 	OpenCodeProvider: ({ children }: { children: any }) => children,
 }))

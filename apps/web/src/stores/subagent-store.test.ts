@@ -2,9 +2,9 @@
  * Tests for subagent store
  */
 
-import { describe, expect, test, beforeEach } from "bun:test"
+import { describe, expect, test, beforeEach } from "vitest"
 import { useSubagentStore } from "./subagent-store"
-import type { Message, Part } from "@/react/store"
+import type { Message, Part } from "@opencode-vibe/react"
 
 describe("useSubagentStore", () => {
 	beforeEach(() => {

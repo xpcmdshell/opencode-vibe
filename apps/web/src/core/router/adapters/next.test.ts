@@ -2,7 +2,7 @@
  * Next.js adapter tests - TDD RED phase
  * Tests createNextHandler and createAction
  */
-import { describe, test, expect, beforeAll, afterAll, afterEach, mock } from "bun:test"
+import { describe, test, expect, beforeAll, afterAll, afterEach, vi } from "vitest"
 import { createOpencodeRoute } from "../builder.js"
 import { createRouter } from "../router.js"
 import { createNextHandler, createAction } from "./next"
@@ -11,11 +11,11 @@ import { Schema } from "effect"
 // Mock SDK client for testing
 const createMockSdk = () => ({
 	session: {
-		get: mock(async (id: any) => ({ id: String(id), title: "Test Session" })),
-		list: mock(async () => [{ id: "1", title: "Session 1" }]),
+		get: vi.fn(async (id: any) => ({ id: String(id), title: "Test Session" })),
+		list: vi.fn(async () => [{ id: "1", title: "Session 1" }]),
 	},
 	global: {
-		event: mock(async function* () {
+		event: vi.fn(async function* () {
 			yield { type: "message", data: "hello" }
 			yield { type: "message", data: "world" }
 		}),

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { useOpenCode } from "@/react"
-import { useOpencodeStore } from "@/react/store"
-import { useMessages } from "@/react/use-messages"
-import { useMessagesWithParts } from "@/react/use-messages-with-parts"
+import { useOpencodeStore } from "@opencode-vibe/react"
+import { useMessages } from "@opencode-vibe/react"
+import { useMessagesWithParts } from "@opencode-vibe/react"
 import { multiServerSSE } from "@/core/multi-server-sse"
 
 interface DebugPanelProps {
@@ -225,7 +225,7 @@ export function DebugPanel({ sessionId, isOpen }: DebugPanelProps) {
 
 			<div className="mb-2">
 				<span className="text-yellow-400">Messages w/ Parts:</span> {messagesWithParts.length}
-				{messagesWithParts.slice(-3).map((m) => (
+				{messagesWithParts.slice(-3).map((m: any) => (
 					<div key={m.info.id} className="ml-2 text-gray-400">
 						{m.info.id.slice(0, 8)}... ({m.parts.length} parts)
 					</div>

@@ -2,7 +2,7 @@
  * Type-level tests for router types
  * Uses @ts-expect-error to verify type constraints
  */
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect } from "vitest"
 import type {
 	Duration,
 	RetryConfig,

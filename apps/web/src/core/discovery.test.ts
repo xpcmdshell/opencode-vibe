@@ -4,7 +4,7 @@
  * TDD - Tests written first, then implementation.
  */
 
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { Effect } from "effect"
 import { ServerDiscovery, makeTestLayer, type ServerInfo } from "./discovery"
 

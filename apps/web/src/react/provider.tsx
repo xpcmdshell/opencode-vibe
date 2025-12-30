@@ -33,7 +33,7 @@ import { toast } from "sonner"
 import { SSEProvider, useSSE } from "./use-sse"
 import { useOpencodeStore } from "./store"
 import { createClient } from "@/core/client"
-import { createRouter, createCaller, createRoutes, type Caller } from "@/core/router"
+import { createRouter, createCaller, createRoutes, type Caller } from "@opencode-vibe/router"
 import type { GlobalEvent, Session as SDKSession } from "@opencode-ai/sdk/client"
 
 /**
@@ -95,7 +95,7 @@ function OpenCodeProviderInner({ url, directory, children }: OpenCodeProviderPro
 	const client = useMemo(() => createClient(directory), [directory])
 	const caller = useMemo(() => {
 		const router = createRouter(createRoutes())
-		return createCaller(router, { sdk: client })
+		return createCaller(router, { sdk: client as any })
 	}, [client])
 
 	const bootstrapCalledRef = useRef(false)

@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/core/client"
-import type { Session } from "@/react/store"
+import type { Session } from "@opencode-vibe/react"
 import type { GlobalEvent } from "@opencode-ai/sdk/client"
 
 /**

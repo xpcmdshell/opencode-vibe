@@ -2,9 +2,9 @@
 
 import { Fragment, useMemo, memo } from "react"
 import type { UIMessage, ChatStatus } from "ai"
-import { useMessagesWithParts } from "@/react/use-messages-with-parts"
-import { useSessionStatus } from "@/react/use-session-status"
-import { useOpencodeStore } from "@/react/store"
+import { useMessagesWithParts } from "@opencode-vibe/react"
+import { useSessionStatus } from "@opencode-vibe/react"
+import { useOpencodeStore } from "@opencode-vibe/react"
 import { transformMessages, type ExtendedUIMessage } from "@/lib/transform-messages"
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message"
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from "@/components/ai-elements/tool"

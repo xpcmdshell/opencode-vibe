@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, afterEach } from "bun:test"
+import { describe, expect, it, beforeAll, afterEach } from "vitest"
 import { Window } from "happy-dom"
 import { render, cleanup } from "@testing-library/react"
 import type { ToolPart } from "@opencode-ai/sdk/client"

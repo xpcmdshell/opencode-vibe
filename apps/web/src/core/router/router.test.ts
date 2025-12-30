@@ -2,7 +2,7 @@
  * Tests for createRouter and route resolution
  * ADR 002 Layer 3 - Router factory and path resolution
  */
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect } from "vitest"
 import { createRouter, RouteNotFoundError } from "./router"
 import { createOpencodeRoute } from "./builder"
 import { Schema } from "effect"

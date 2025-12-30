@@ -2,7 +2,7 @@
  * Tests for stream.ts - Streaming + heartbeat support
  * TDD: RED phase - these tests should fail initially
  */
-import { describe, it, expect, beforeEach, afterEach } from "bun:test"
+import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import * as Duration from "effect/Duration"

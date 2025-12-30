@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test"
+import { describe, test, expect } from "vitest"
 import type { ToolPart } from "@opencode-ai/sdk/client"
 import { getToolContextLines, hasExpandableContent } from "./tool"
 
@@ -206,7 +206,7 @@ describe("getToolContextLines", () => {
 
 			const result = getToolContextLines(part)
 			expect(result.primary).toHaveLength(50)
-			expect(result.primary).toEndWith("...")
+			expect(result.primary).toMatch(/\.\.\.$/)
 			expect(result.secondary).toBe("exit 0")
 		})
 

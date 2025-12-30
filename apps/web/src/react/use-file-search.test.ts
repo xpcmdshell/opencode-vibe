@@ -13,7 +13,7 @@
  */
 
 // CRITICAL: Clear any mocks from other test files
-import { mock } from "bun:test"
+import { mock } from "vitest"
 mock.restore()
 
 // Set up DOM environment for React Testing Library
@@ -24,7 +24,7 @@ globalThis.document = window.document
 // @ts-ignore - happy-dom types don't perfectly match DOM types, but work at runtime
 globalThis.window = window
 
-import { describe, it, expect, beforeEach, afterAll } from "bun:test"
+import { describe, it, expect, beforeEach, afterAll } from "vitest"
 import { renderHook, waitFor, act } from "@testing-library/react"
 import type { ReactNode } from "react"
 
@@ -44,7 +44,7 @@ const mockFiles = [
 let mockFindFiles: ReturnType<typeof mock>
 
 function resetMocks() {
-	mockFindFiles = mock(async () => ({ data: mockFiles }))
+	mockFindFiles = vi.fn(async () => ({ data: mockFiles }))
 }
 
 // Mock the SDK client module
@@ -63,7 +63,7 @@ mock.module("./provider", () => ({
 		url: "http://localhost:4056",
 		directory: "/test/project",
 		ready: true,
-		sync: mock(() => Promise.resolve()),
+		sync: vi.fn(() => Promise.resolve()),
 	}),
 	// Also export OpenCodeProvider to prevent import errors
 	OpenCodeProvider: ({ children }: { children: any }) => children,
@@ -204,7 +204,7 @@ describe("useFileSearch", () => {
 	it("handles SDK errors gracefully", async () => {
 		// Suppress console.error for this test since we're intentionally triggering an error
 		const consoleError = console.error
-		console.error = mock(() => {})
+		console.error = vi.fn(() => {})
 
 		const testError = new Error("Network error")
 		mockFindFiles.mockRejectedValue(testError)

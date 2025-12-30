@@ -7,31 +7,31 @@ globalThis.document = window.document
 globalThis.window = window
 
 import { renderHook, waitFor, act } from "@testing-library/react"
-import { describe, expect, test, mock, beforeEach } from "bun:test"
+import { describe, expect, test, vi, beforeEach } from "vitest"
 import { useSendMessage } from "./use-send-message"
 import type { Prompt } from "@/types/prompt"
 
 // Mock useOpenCode to return a caller
 mock.module("./provider", () => ({
-	useOpenCode: mock(() => ({
-		caller: mock(async () => undefined),
+	useOpenCode: vi.fn(() => ({
+		caller: vi.fn(async () => undefined),
 		url: "http://localhost:3000",
 		directory: "/test",
 		ready: true,
-		sync: mock(async () => {}),
+		sync: vi.fn(async () => {}),
 	})),
 }))
 
 // Mock useSessionStatus to return idle by default (allows immediate processing)
 mock.module("./use-session-status", () => ({
-	useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+	useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 }))
 
 // Mock useCommands to return no commands by default (regular prompts pass through)
 mock.module("./use-commands", () => ({
-	useCommands: mock(() => ({
+	useCommands: vi.fn(() => ({
 		commands: [],
-		findCommand: mock(() => undefined),
+		findCommand: vi.fn(() => undefined),
 		loading: false,
 		error: null,
 	})),
@@ -53,20 +53,20 @@ describe("useSendMessage", () => {
 	})
 
 	test("converts prompt parts to API format and sends via caller", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [],
-				findCommand: mock(() => undefined),
+				findCommand: vi.fn(() => undefined),
 				loading: false,
 				error: null,
 			})),
@@ -112,16 +112,16 @@ describe("useSendMessage", () => {
 	})
 
 	test("sets isLoading to true during send, false after", async () => {
-		const mockCaller = mock(
+		const mockCaller = vi.fn(
 			async () => new Promise((resolve) => setTimeout(() => resolve(undefined), 100)),
 		)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
@@ -147,16 +147,16 @@ describe("useSendMessage", () => {
 
 	test("sets error state when caller throws", async () => {
 		const mockError = new Error("Network error")
-		const mockCaller = mock(async () => {
+		const mockCaller = vi.fn(async () => {
 			throw mockError
 		})
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
@@ -176,20 +176,20 @@ describe("useSendMessage", () => {
 	})
 
 	test("handles empty prompt array", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [],
-				findCommand: mock(() => undefined),
+				findCommand: vi.fn(() => undefined),
 				loading: false,
 				error: null,
 			})),
@@ -204,20 +204,20 @@ describe("useSendMessage", () => {
 	})
 
 	test("uses caller from useOpenCode context", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [],
-				findCommand: mock(() => undefined),
+				findCommand: vi.fn(() => undefined),
 				loading: false,
 				error: null,
 			})),
@@ -241,16 +241,16 @@ describe("useSendMessage", () => {
 	})
 
 	test("handles caller errors", async () => {
-		const mockCaller = mock(async () => {
+		const mockCaller = vi.fn(async () => {
 			throw new Error("API error")
 		})
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
@@ -273,19 +273,19 @@ describe("useSendMessage", () => {
 
 	test("clears error on subsequent successful send", async () => {
 		let shouldFail = true
-		const mockCaller = mock(async () => {
+		const mockCaller = vi.fn(async () => {
 			if (shouldFail) {
 				throw new Error("First attempt fails")
 			}
 			return undefined
 		})
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
@@ -320,7 +320,7 @@ describe("useSendMessage", () => {
 			resolveFirst = resolve
 		})
 
-		const mockCaller = mock(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
+		const mockCaller = vi.fn(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
 			const text = input.parts[0]?.text || "unknown"
 			if (text === "first") {
 				await firstPromise
@@ -329,12 +329,12 @@ describe("useSendMessage", () => {
 			return undefined
 		})
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
@@ -383,17 +383,17 @@ describe("useSendMessage", () => {
 			resolvePrompt = resolve
 		})
 
-		const mockCaller = mock(async () => {
+		const mockCaller = vi.fn(async () => {
 			await blockingPromise
 			return undefined
 		})
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
@@ -429,7 +429,7 @@ describe("useSendMessage", () => {
 		const callOrder: string[] = []
 		let shouldFail = false
 
-		const mockCaller = mock(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
+		const mockCaller = vi.fn(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
 			const text = input.parts[0]?.text || "unknown"
 			callOrder.push(text)
 			if (shouldFail && text === "second") {
@@ -438,12 +438,12 @@ describe("useSendMessage", () => {
 			return undefined
 		})
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
@@ -480,24 +480,24 @@ describe("useSendMessage", () => {
 		const callOrder: string[] = []
 
 		// Mock caller to track calls
-		const mockCaller = mock(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
+		const mockCaller = vi.fn(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
 			const text = input.parts[0]?.text || "unknown"
 			callOrder.push(text)
 			return undefined
 		})
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		// Mock useSessionStatus to return running=true (session busy)
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: true, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: true, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>
@@ -518,26 +518,26 @@ describe("useSendMessage", () => {
 	})
 
 	test("sends first message immediately even if no session status exists", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		// Mock useSessionStatus to return idle (no status = ok to send)
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [],
-				findCommand: mock(() => undefined),
+				findCommand: vi.fn(() => undefined),
 				loading: false,
 				error: null,
 			})),
@@ -556,24 +556,24 @@ describe("useSendMessage", () => {
 	test("processes queued messages when session is idle", async () => {
 		const callOrder: string[] = []
 
-		const mockCaller = mock(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
+		const mockCaller = vi.fn(async (_path: string, input: { parts: Array<{ text?: string }> }) => {
 			const text = input.parts[0]?.text || "unknown"
 			callOrder.push(text)
 			return undefined
 		})
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		// Mock useSessionStatus to return idle (allows queue processing)
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>
@@ -598,20 +598,20 @@ describe("useSendMessage", () => {
 	// ═══════════════════════════════════════════════════════════════
 
 	test("routes custom slash commands to session.command route", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		// Mock useCommands to return a custom command
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [
 					{
 						id: "custom.review",
@@ -620,7 +620,7 @@ describe("useSendMessage", () => {
 						type: "custom",
 					},
 				],
-				findCommand: mock((trigger: string) =>
+				findCommand: vi.fn((trigger: string) =>
 					trigger === "review"
 						? {
 								id: "custom.review",
@@ -636,7 +636,7 @@ describe("useSendMessage", () => {
 		}))
 
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>
@@ -657,20 +657,20 @@ describe("useSendMessage", () => {
 	})
 
 	test("skips builtin slash commands (handled client-side)", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		// Mock useCommands to return a builtin command
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [
 					{
 						id: "session.new",
@@ -679,7 +679,7 @@ describe("useSendMessage", () => {
 						type: "builtin",
 					},
 				],
-				findCommand: mock((trigger: string) =>
+				findCommand: vi.fn((trigger: string) =>
 					trigger === "new"
 						? {
 								id: "session.new",
@@ -695,7 +695,7 @@ describe("useSendMessage", () => {
 		}))
 
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>
@@ -711,29 +711,29 @@ describe("useSendMessage", () => {
 	})
 
 	test("sends unknown /commands as regular prompts", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		// Mock useCommands to return no matching command
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [],
-				findCommand: mock(() => undefined),
+				findCommand: vi.fn(() => undefined),
 				loading: false,
 				error: null,
 			})),
 		}))
 
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>
@@ -755,28 +755,28 @@ describe("useSendMessage", () => {
 	})
 
 	test("sends regular text as prompts (not starting with /)", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [],
-				findCommand: mock(() => undefined),
+				findCommand: vi.fn(() => undefined),
 				loading: false,
 				error: null,
 			})),
 		}))
 
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>
@@ -798,19 +798,19 @@ describe("useSendMessage", () => {
 	})
 
 	test("extracts command arguments correctly", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [
 					{
 						id: "custom.debug",
@@ -819,7 +819,7 @@ describe("useSendMessage", () => {
 						type: "custom",
 					},
 				],
-				findCommand: mock((trigger: string) =>
+				findCommand: vi.fn((trigger: string) =>
 					trigger === "debug"
 						? {
 								id: "custom.debug",
@@ -835,7 +835,7 @@ describe("useSendMessage", () => {
 		}))
 
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>
@@ -861,19 +861,19 @@ describe("useSendMessage", () => {
 	})
 
 	test("handles command with no arguments", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [
 					{
 						id: "custom.status",
@@ -882,7 +882,7 @@ describe("useSendMessage", () => {
 						type: "custom",
 					},
 				],
-				findCommand: mock((trigger: string) =>
+				findCommand: vi.fn((trigger: string) =>
 					trigger === "status"
 						? {
 								id: "custom.status",
@@ -898,7 +898,7 @@ describe("useSendMessage", () => {
 		}))
 
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>
@@ -917,28 +917,28 @@ describe("useSendMessage", () => {
 	})
 
 	test("only checks text parts for slash commands (ignores file parts)", async () => {
-		const mockCaller = mock(async () => undefined)
+		const mockCaller = vi.fn(async () => undefined)
 		mock.module("./provider", () => ({
-			useOpenCode: mock(() => ({
+			useOpenCode: vi.fn(() => ({
 				caller: mockCaller,
 				url: "http://localhost:3000",
 				directory: "/test",
 				ready: true,
-				sync: mock(async () => {}),
+				sync: vi.fn(async () => {}),
 			})),
 		}))
 
 		mock.module("./use-commands", () => ({
-			useCommands: mock(() => ({
+			useCommands: vi.fn(() => ({
 				commands: [],
-				findCommand: mock(() => undefined),
+				findCommand: vi.fn(() => undefined),
 				loading: false,
 				error: null,
 			})),
 		}))
 
 		mock.module("./use-session-status", () => ({
-			useSessionStatus: mock(() => ({ running: false, isLoading: false })),
+			useSessionStatus: vi.fn(() => ({ running: false, isLoading: false })),
 		}))
 
 		const { result } = renderHook(() =>

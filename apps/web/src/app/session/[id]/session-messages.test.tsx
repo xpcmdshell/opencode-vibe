@@ -10,8 +10,8 @@
  * not full component rendering tests (which would require DOM setup).
  */
 
-import { describe, test, expect, beforeEach, mock } from "bun:test"
-import { useOpencodeStore, type Message, type Part } from "@/react/store"
+import { describe, test, expect, beforeEach, vi } from "vitest"
+import { useOpencodeStore, type Message, type Part } from "@opencode-vibe/react"
 
 describe("SessionMessages Hydration Integration", () => {
 	const TEST_DIR = "/test/directory"

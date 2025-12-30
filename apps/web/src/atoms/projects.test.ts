@@ -6,7 +6,7 @@
  * not DOM behavior.
  */
 
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it } from "vitest"
 
 describe("project atoms exports", () => {
 	it("useProjects hook exists and is callable", async () => {

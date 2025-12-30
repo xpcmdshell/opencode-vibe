@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect } from "vitest"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import { executeRoute, executeRequestHandler } from "./executor"

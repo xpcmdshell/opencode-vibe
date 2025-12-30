@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, afterEach } from "bun:test"
+import { describe, test, expect, beforeAll, afterEach } from "vitest"
 import { Window } from "happy-dom"
 import { render, cleanup } from "@testing-library/react"
 import { Tool } from "./tool"
@@ -126,7 +126,7 @@ describe("ToolCard (enhanced 3-line display)", () => {
 			// Should show truncated command (50 chars max)
 			const commandEl = container.querySelector('[title*="git commit"]')
 			expect(commandEl?.textContent?.length).toBeLessThanOrEqual(50)
-			expect(commandEl?.textContent).toEndWith("...")
+			expect(commandEl?.textContent).toMatch(/\.\.\.$/)
 
 			// Should show exit code
 			expect(getByText(container, "exit 0")).toBeDefined()

@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test"
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { useOpencodeStore } from "./store"
 import type { Message } from "./store"
 
@@ -22,7 +22,7 @@ describe("useSessionMessages logic", () => {
 		useOpencodeStore.setState({ directories: {} })
 
 		// Reset fetch mock
-		globalThis.fetch = mock(async () => ({
+		globalThis.fetch = vi.fn(async () => ({
 			ok: true,
 			json: async () => [],
 		})) as any
@@ -40,7 +40,7 @@ describe("useSessionMessages logic", () => {
 				role: i % 2 === 0 ? "user" : "assistant",
 			}))
 
-			globalThis.fetch = mock(async () => ({
+			globalThis.fetch = vi.fn(async () => ({
 				ok: true,
 				json: async () => mockMessages,
 			})) as any
@@ -79,7 +79,7 @@ describe("useSessionMessages logic", () => {
 				role: "user",
 			}))
 
-			globalThis.fetch = mock(async () => ({
+			globalThis.fetch = vi.fn(async () => ({
 				ok: true,
 				json: async () => mockMessages,
 			})) as any
@@ -125,7 +125,7 @@ describe("useSessionMessages logic", () => {
 		})
 
 		it("fetches with increased limit", async () => {
-			globalThis.fetch = mock(async () => ({
+			globalThis.fetch = vi.fn(async () => ({
 				ok: true,
 				json: async () => [],
 			})) as any
@@ -208,7 +208,7 @@ describe("useSessionMessages logic", () => {
 
 	describe("error handling", () => {
 		it("handles fetch failure gracefully", async () => {
-			globalThis.fetch = mock(async () => ({
+			globalThis.fetch = vi.fn(async () => ({
 				ok: false,
 				status: 500,
 				statusText: "Internal Server Error",
@@ -221,7 +221,7 @@ describe("useSessionMessages logic", () => {
 		})
 
 		it("handles network error", async () => {
-			globalThis.fetch = mock(async () => {
+			globalThis.fetch = vi.fn(async () => {
 				throw new Error("Network error")
 			}) as any
 
@@ -249,7 +249,7 @@ describe("useSessionMessages logic", () => {
 		})
 
 		it("includes directory header", async () => {
-			globalThis.fetch = mock(async () => ({
+			globalThis.fetch = vi.fn(async () => ({
 				ok: true,
 				json: async () => [],
 			})) as any

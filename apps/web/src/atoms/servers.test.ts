@@ -7,7 +7,7 @@
  * These tests focus on the logic layer: selectBestServer, default fallback, etc.
  */
 
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it } from "vitest"
 import type { ServerInfo } from "../core/discovery"
 
 /**

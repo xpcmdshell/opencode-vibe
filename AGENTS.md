@@ -41,7 +41,8 @@ See `docs/adr/001-nextjs-rebuild.md` for full architecture rationale and migrati
 
 | Layer          | Technology                                                | Why                                                                |
 | -------------- | --------------------------------------------------------- | ------------------------------------------------------------------ |
-| **Runtime**    | [Bun](https://bun.com)                                    | Fast all-in-one runtime, 10x faster installs, built-in test runner |
+| **Runtime**    | [Bun](https://bun.com)                                    | Fast all-in-one runtime, 10x faster installs                       |
+| **Testing**    | [Vitest](https://vitest.dev)                              | Fast, isolated tests with proper ESM support                       |
 | **Framework**  | Next.js 16 canary                                         | React Server Components, App Router, Turbopack                     |
 | **Bundler**    | [Turbopack](https://turbo.build/pack)                     | Next-gen bundler, faster than Webpack                              |
 | **Monorepo**   | [Turborepo](https://turbo.build/repo) (planned)           | Monorepo orchestration, incremental builds                         |
@@ -204,7 +205,16 @@ RED → GREEN → REFACTOR
 
 **Bug fixes:** Write test that reproduces bug FIRST, then fix. Prevents regression forever.
 
-**NO DOM TESTING.** Don't write tests that render React components with happy-dom/jsdom and assert on DOM output. It's brittle, slow, and tests implementation details. Test logic, not markup.
+**NO DOM TESTING.** If the DOM is in the mix, we already lost. Don't write tests that render React components with happy-dom/jsdom and assert on DOM output. It's brittle, slow, and tests implementation details not behavior.
+
+- `renderHook` and `render` from `@testing-library` are code smells
+- Component tests that check "does this div have this class" are worthless
+- Test pure functions and hooks logic directly
+- Test state management (Zustand stores) in isolation
+- Test API/SDK integration with mocks
+- Use E2E tests (Playwright) for actual UI verification if needed
+
+**USE VITEST, NOT BUN TEST.** Bun test has poor isolation - Zustand stores and singletons leak state between tests causing flaky failures. Tests pass individually but fail together. Vitest with `pool: "forks"` has proper isolation.
 
 See `@knowledge/tdd-patterns.md` for full doctrine.
 

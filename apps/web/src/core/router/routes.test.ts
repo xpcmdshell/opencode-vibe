@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from "bun:test"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import * as Effect from "effect/Effect"
 import { createRouter } from "./router"
 import { createCaller } from "./adapters/direct"
@@ -25,7 +25,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				session: {
-					messages: mock(async () => ({
+					messages: vi.fn(async () => ({
 						data: mockMessages,
 					})),
 				},
@@ -56,7 +56,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				session: {
-					messages: mock(async () => ({
+					messages: vi.fn(async () => ({
 						data: mockMessages,
 					})),
 				},
@@ -81,7 +81,7 @@ describe("routes", () => {
 		it("returns empty array when no messages exist", async () => {
 			const mockSdk = {
 				session: {
-					messages: mock(async () => ({
+					messages: vi.fn(async () => ({
 						data: [],
 					})),
 				},
@@ -101,7 +101,7 @@ describe("routes", () => {
 		it("validates sessionId is required", async () => {
 			const mockSdk = {
 				session: {
-					messages: mock(async () => ({ data: [] })),
+					messages: vi.fn(async () => ({ data: [] })),
 				},
 			} as unknown as OpencodeClient
 
@@ -116,7 +116,7 @@ describe("routes", () => {
 		it("validates limit is a positive number", async () => {
 			const mockSdk = {
 				session: {
-					messages: mock(async () => ({ data: [] })),
+					messages: vi.fn(async () => ({ data: [] })),
 				},
 			} as unknown as OpencodeClient
 
@@ -147,7 +147,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				session: {
-					get: mock(async () => ({
+					get: vi.fn(async () => ({
 						data: mockSession,
 					})),
 				},
@@ -170,7 +170,7 @@ describe("routes", () => {
 		it("validates id is required", async () => {
 			const mockSdk = {
 				session: {
-					get: mock(async () => ({ data: {} })),
+					get: vi.fn(async () => ({ data: {} })),
 				},
 			} as unknown as OpencodeClient
 
@@ -199,7 +199,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				session: {
-					list: mock(async () => ({
+					list: vi.fn(async () => ({
 						data: mockSessions,
 					})),
 				},
@@ -218,7 +218,7 @@ describe("routes", () => {
 		it("returns empty array when no sessions exist", async () => {
 			const mockSdk = {
 				session: {
-					list: mock(async () => ({
+					list: vi.fn(async () => ({
 						data: [],
 					})),
 				},
@@ -252,7 +252,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				session: {
-					create: mock(async () => ({
+					create: vi.fn(async () => ({
 						data: mockSession,
 					})),
 				},
@@ -281,7 +281,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				session: {
-					create: mock(async () => ({
+					create: vi.fn(async () => ({
 						data: mockSession,
 					})),
 				},
@@ -312,7 +312,7 @@ describe("routes", () => {
 		it("deletes a session by id", async () => {
 			const mockSdk = {
 				session: {
-					delete: mock(async () => ({
+					delete: vi.fn(async () => ({
 						data: undefined,
 					})),
 				},
@@ -335,7 +335,7 @@ describe("routes", () => {
 		it("validates id is required", async () => {
 			const mockSdk = {
 				session: {
-					delete: mock(async () => ({ data: undefined })),
+					delete: vi.fn(async () => ({ data: undefined })),
 				},
 			} as unknown as OpencodeClient
 
@@ -361,7 +361,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				session: {
-					promptAsync: mock(async () => ({
+					promptAsync: vi.fn(async () => ({
 						data: undefined,
 					})),
 				},
@@ -389,7 +389,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				session: {
-					promptAsync: mock(async () => ({
+					promptAsync: vi.fn(async () => ({
 						data: undefined,
 					})),
 				},
@@ -415,7 +415,7 @@ describe("routes", () => {
 		it("validates sessionId is required", async () => {
 			const mockSdk = {
 				session: {
-					promptAsync: mock(async () => ({ data: undefined })),
+					promptAsync: vi.fn(async () => ({ data: undefined })),
 				},
 			} as unknown as OpencodeClient
 
@@ -429,7 +429,7 @@ describe("routes", () => {
 		it("validates parts is required", async () => {
 			const mockSdk = {
 				session: {
-					promptAsync: mock(async () => ({ data: undefined })),
+					promptAsync: vi.fn(async () => ({ data: undefined })),
 				},
 			} as unknown as OpencodeClient
 
@@ -462,7 +462,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				config: {
-					providers: mock(async () => ({
+					providers: vi.fn(async () => ({
 						data: mockProviders,
 					})),
 				},
@@ -491,7 +491,7 @@ describe("routes", () => {
 		it("executes a slash command without optional parameters", async () => {
 			const mockSdk = {
 				session: {
-					command: mock(async () => ({
+					command: vi.fn(async () => ({
 						data: undefined,
 					})),
 				},
@@ -520,7 +520,7 @@ describe("routes", () => {
 		it("executes a slash command with agent and model", async () => {
 			const mockSdk = {
 				session: {
-					command: mock(async () => ({
+					command: vi.fn(async () => ({
 						data: undefined,
 					})),
 				},
@@ -553,7 +553,7 @@ describe("routes", () => {
 		it("validates sessionId is required", async () => {
 			const mockSdk = {
 				session: {
-					command: mock(async () => ({ data: undefined })),
+					command: vi.fn(async () => ({ data: undefined })),
 				},
 			} as unknown as OpencodeClient
 
@@ -569,7 +569,7 @@ describe("routes", () => {
 		it("validates command is required", async () => {
 			const mockSdk = {
 				session: {
-					command: mock(async () => ({ data: undefined })),
+					command: vi.fn(async () => ({ data: undefined })),
 				},
 			} as unknown as OpencodeClient
 
@@ -585,7 +585,7 @@ describe("routes", () => {
 		it("validates arguments is required", async () => {
 			const mockSdk = {
 				session: {
-					command: mock(async () => ({ data: undefined })),
+					command: vi.fn(async () => ({ data: undefined })),
 				},
 			} as unknown as OpencodeClient
 
@@ -616,7 +616,7 @@ describe("routes", () => {
 
 			const mockSdk = {
 				command: {
-					list: mock(async () => ({
+					list: vi.fn(async () => ({
 						data: mockCommands,
 					})),
 				},
@@ -635,7 +635,7 @@ describe("routes", () => {
 		it("returns empty array when no custom commands exist", async () => {
 			const mockSdk = {
 				command: {
-					list: mock(async () => ({
+					list: vi.fn(async () => ({
 						data: [],
 					})),
 				},

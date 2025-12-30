@@ -11,10 +11,10 @@
 import { useEffect, useRef, useMemo, memo } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { useOpencodeStore, type SessionStatus } from "@/react/store"
-import { useSSE } from "@/react/use-sse"
-import { useMultiServerSSE } from "@/react/use-multi-server-sse"
-import { useLiveTime } from "@/react/use-live-time"
+import { useOpencodeStore, type SessionStatus } from "@opencode-vibe/react"
+import { useSSE } from "@opencode-vibe/react"
+import { useMultiServerSSE } from "@opencode-vibe/react"
+import { useLiveTime } from "@opencode-vibe/react"
 import { createClient } from "@/core/client"
 
 interface SessionDisplay {
@@ -87,7 +87,7 @@ const SessionRow = memo(
 	function SessionRow({ session, directory }: { session: SessionDisplay; directory: string }) {
 		// Subscribe to session status from store
 		const status = useOpencodeStore(
-			(state) => state.directories[directory]?.sessionStatus[session.id],
+			(state: any) => state.directories[directory]?.sessionStatus[session.id],
 		)
 
 		// Trigger re-render every 60 seconds for live time updates
@@ -135,9 +135,10 @@ const EMPTY_ACTIVITY: Record<string, number> = {}
 function useSortedSessions(sessions: SessionDisplay[], directory: string) {
 	// Select raw values first, then derive - avoids creating new objects in selector
 	const sessionStatuses =
-		useOpencodeStore((state) => state.directories[directory]?.sessionStatus) ?? EMPTY_STATUS
+		useOpencodeStore((state: any) => state.directories[directory]?.sessionStatus) ?? EMPTY_STATUS
 	const lastActivity =
-		useOpencodeStore((state) => state.directories[directory]?.sessionLastActivity) ?? EMPTY_ACTIVITY
+		useOpencodeStore((state: any) => state.directories[directory]?.sessionLastActivity) ??
+		EMPTY_ACTIVITY
 
 	return useMemo(() => {
 		return [...sessions].sort((a, b) => {

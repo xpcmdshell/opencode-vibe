@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeAll, afterEach } from "bun:test"
+import { describe, expect, it, beforeAll, afterEach } from "vitest"
 import { Window } from "happy-dom"
 import { render, cleanup } from "@testing-library/react"
 import type { SubagentSession } from "@/stores/subagent-store"
-import type { Message, Part } from "@/react/store"
+import type { Message, Part } from "@opencode-vibe/react"
 import { SubagentView } from "./subagent-view"
 
 // Set up DOM for React component tests

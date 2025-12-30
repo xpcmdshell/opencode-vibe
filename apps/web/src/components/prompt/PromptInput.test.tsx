@@ -12,7 +12,7 @@ global.document = window.document as any
 global.window = window as any
 global.navigator = window.navigator as any
 
-import { describe, test, expect, beforeEach, beforeAll, afterEach, afterAll, mock } from "bun:test"
+import { describe, test, expect, beforeEach, beforeAll, afterEach, afterAll, vi } from "vitest"
 import { render, fireEvent } from "@testing-library/react"
 import { setupServer } from "msw/node"
 import { http, HttpResponse } from "msw"
@@ -74,7 +74,7 @@ mock.module("@/react/use-sse", () => ({
 // NOW import components
 import { PromptInput } from "./PromptInput"
 import { usePromptStore } from "@/stores/prompt-store"
-import { OpenCodeProvider } from "@/react/provider"
+import { OpenCodeProvider } from "@opencode-vibe/react"
 
 afterAll(() => {
 	mock.restore()
@@ -166,7 +166,7 @@ describe("PromptInput", () => {
 
 	describe("Submit Behavior", () => {
 		test("calls onSubmit when Enter pressed without autocomplete", () => {
-			const onSubmit = mock((parts: Prompt) => {})
+			const onSubmit = vi.fn((parts: Prompt) => {})
 
 			const { container } = render(<PromptInput onSubmit={onSubmit} />, {
 				wrapper: TestWrapper,
@@ -190,7 +190,7 @@ describe("PromptInput", () => {
 		// TODO: Needs Selection API support - test skipped
 
 		test("allows Shift+Enter for multiline without submitting", () => {
-			const onSubmit = mock((parts: Prompt) => {})
+			const onSubmit = vi.fn((parts: Prompt) => {})
 
 			const { container } = render(<PromptInput onSubmit={onSubmit} />, {
 				wrapper: TestWrapper,
@@ -206,7 +206,7 @@ describe("PromptInput", () => {
 		})
 
 		test("resets store after submit", () => {
-			const onSubmit = mock((parts: Prompt) => {})
+			const onSubmit = vi.fn((parts: Prompt) => {})
 
 			const { container } = render(<PromptInput onSubmit={onSubmit} />, {
 				wrapper: TestWrapper,

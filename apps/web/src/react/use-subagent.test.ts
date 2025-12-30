@@ -9,7 +9,7 @@
  */
 
 // CRITICAL: Clear any mocks from other test files
-import { mock } from "bun:test"
+import { mock } from "vitest"
 mock.restore()
 
 // Set up DOM environment for React Testing Library
@@ -20,10 +20,10 @@ globalThis.document = window.document
 // @ts-ignore - happy-dom types don't perfectly match DOM types, but work at runtime
 globalThis.window = window
 
-import { describe, it, expect, beforeEach, afterAll } from "bun:test"
+import { describe, it, expect, beforeEach, afterAll } from "vitest"
 import { renderHook, act } from "@testing-library/react"
 import { useSubagentStore } from "@/stores/subagent-store"
-import type { Message, Part } from "@/react/store"
+import type { Message, Part } from "@opencode-vibe/react"
 
 // Import after DOM setup
 const { useSubagent } = await import("./use-subagent")

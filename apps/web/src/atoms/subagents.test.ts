@@ -8,11 +8,11 @@
  * - Parent part ID to session mapping
  */
 
-import { describe, test, expect, beforeAll, afterAll } from "bun:test"
+import { describe, test, expect, beforeAll, afterAll } from "vitest"
 import { Window } from "happy-dom"
 import { renderHook, act } from "@testing-library/react"
 import { useSubagents } from "./subagents"
-import type { Message, Part } from "@/react/store"
+import type { Message, Part } from "@opencode-vibe/react"
 
 // Set up happy-dom global environment
 let happyWindow: Window

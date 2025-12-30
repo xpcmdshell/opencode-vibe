@@ -5,7 +5,7 @@
  * Used by Zustand store for efficient session/message updates.
  */
 
-import { describe, test, expect } from "bun:test"
+import { describe, test, expect } from "vitest"
 import { Binary } from "./binary"
 
 describe("Binary.search", () => {

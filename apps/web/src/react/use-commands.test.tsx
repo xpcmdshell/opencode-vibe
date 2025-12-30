@@ -13,7 +13,7 @@ globalThis.document = window.document
 // @ts-ignore - happy-dom types don't perfectly match DOM types, but work at runtime
 globalThis.window = window
 
-import { describe, test, expect } from "bun:test"
+import { describe, test, expect } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
 import { useCommands } from "./use-commands"
 import { OpenCodeProvider } from "./provider"
