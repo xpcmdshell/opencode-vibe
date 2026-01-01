@@ -13,3 +13,12 @@ export type {
 } from "./status-service.js"
 
 export { MessageService } from "./message-service.js"
+export type { ListWithPartsInput } from "./message-service.js"
+
+export { ContextService } from "./context-service.js"
+export type {
+	ModelLimits,
+	TokenUsage,
+	ContextUsage,
+	ComputeUsageInput,
+} from "./context-service.js"

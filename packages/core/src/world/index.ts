@@ -5,8 +5,18 @@
  * from SSE events. Provides both subscription and async iterator APIs.
  */
 
-export { createWorldStream, catchUpEvents, tailEvents, resumeEvents } from "./stream.js"
-export type { CatchUpResponse } from "./stream.js"
+export {
+	createWorldStream,
+	catchUpEvents,
+	tailEvents,
+	resumeEvents,
+	// CLI-compatible direct server functions
+	connectToServerSSE,
+	tailEventsDirect,
+	catchUpEventsDirect,
+	resumeEventsDirect,
+} from "./stream.js"
+export type { CatchUpResponse, DiscoverServers } from "./stream.js"
 export { WorldStore } from "./atoms.js"
 export type {
 	EnrichedMessage,

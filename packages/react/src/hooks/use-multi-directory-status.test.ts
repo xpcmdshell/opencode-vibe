@@ -234,12 +234,12 @@ describe("useMultiDirectoryStatus", () => {
 			// Initialize directory in store
 			useOpencodeStore.getState().initDirectory(mockDirectory)
 
-			// Simulate SSE event updating sessionStatus
+			// Simulate SSE event updating sessionStatus (status pre-normalized by Core)
 			useOpencodeStore.getState().handleEvent(mockDirectory, {
 				type: "session.status",
 				properties: {
 					sessionID: mockSessionId,
-					status: { type: "busy" },
+					status: "running", // Pre-normalized by Core's normalizeStatus()
 				},
 			})
 
@@ -255,12 +255,12 @@ describe("useMultiDirectoryStatus", () => {
 
 			useOpencodeStore.getState().initDirectory(mockDirectory)
 
-			// Set to running first
+			// Set to running first (status pre-normalized by Core)
 			useOpencodeStore.getState().handleEvent(mockDirectory, {
 				type: "session.status",
 				properties: {
 					sessionID: mockSessionId,
-					status: { type: "busy" },
+					status: "running", // Pre-normalized by Core's normalizeStatus()
 				},
 			})
 
@@ -268,12 +268,12 @@ describe("useMultiDirectoryStatus", () => {
 				expect(result.current.sessionStatuses[mockSessionId]).toBe("running")
 			})
 
-			// Set to completed
+			// Set to completed (status pre-normalized by Core)
 			useOpencodeStore.getState().handleEvent(mockDirectory, {
 				type: "session.status",
 				properties: {
 					sessionID: mockSessionId,
-					status: { type: "idle" },
+					status: "completed", // Pre-normalized by Core's normalizeStatus()
 				},
 			})
 

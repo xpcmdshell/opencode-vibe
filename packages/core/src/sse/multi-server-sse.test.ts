@@ -791,11 +791,74 @@ describe("MultiServerSSE session event handling", () => {
 			expect.objectContaining({
 				directory: "/test/project",
 				sessionID: "ses_123",
-				status: { type: "running" },
+				status: "running", // Normalized from { type: "running" }
 			}),
 		)
 
 		sse.stop()
+	})
+
+	it("should normalize status formats from session.status events", async () => {
+		const sse = new MultiServerSSE()
+		const statusCallback = vi.fn()
+
+		// Test multiple status formats
+		const testCases = [
+			{ input: { type: "running" }, expected: "running" },
+			{ input: { type: "idle" }, expected: "completed" },
+			{ input: { type: "busy" }, expected: "running" },
+			{ input: "pending", expected: "running" },
+			{ input: "active", expected: "running" },
+			{ input: "done", expected: "completed" },
+			{ input: "completed", expected: "completed" },
+			{ input: true, expected: "running" },
+			{ input: false, expected: "completed" },
+		]
+
+		for (const { input, expected } of testCases) {
+			statusCallback.mockClear()
+
+			const mockStream = new ReadableStream({
+				start(controller) {
+					const event = {
+						directory: "/test/project",
+						payload: {
+							type: "session.status",
+							properties: {
+								sessionID: "ses_test",
+								status: input,
+							},
+						},
+					}
+					controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
+				},
+			})
+
+			vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+				if (url === "/api/opencode/servers") {
+					return new Response(
+						JSON.stringify([{ port: 3000, pid: 123, directory: "/test/project" }]),
+					)
+				}
+				return new Response(mockStream, {
+					headers: { "Content-Type": "text/event-stream" },
+				})
+			})
+
+			sse.onStatus(statusCallback)
+			sse.start()
+			await vi.advanceTimersByTimeAsync(100)
+
+			expect(statusCallback).toHaveBeenCalledWith(
+				expect.objectContaining({
+					directory: "/test/project",
+					sessionID: "ses_test",
+					status: expected,
+				}),
+			)
+
+			sse.stop()
+		}
 	})
 
 	it("should track sessionToPort mapping from session.created events", async () => {

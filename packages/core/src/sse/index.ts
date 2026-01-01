@@ -18,3 +18,4 @@ export {
 	type DiscoveredServer,
 	type SSEState,
 } from "./multi-server-sse.js"
+export { normalizeStatus } from "./normalize-status.js"

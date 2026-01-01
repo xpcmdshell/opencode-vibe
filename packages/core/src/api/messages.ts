@@ -9,6 +9,7 @@
 
 import { Effect } from "effect"
 import { MessageAtom } from "../atoms/messages.js"
+import { PartAtom } from "../atoms/parts.js"
 import { MessageService } from "../services/message-service.js"
 import { runWithRuntime } from "../runtime/run-with-runtime.js"
 import type { Message, MessageWithParts } from "../types/index.js"
@@ -76,9 +77,20 @@ export const messages = {
 	 */
 	listWithParts: (sessionId: string, directory?: string): Promise<MessageWithParts[]> =>
 		runWithRuntime(
-			Effect.gen(function* () {
-				const service = yield* MessageService
-				return yield* service.listWithParts(sessionId, directory)
+			Effect.gen(function* (_) {
+				// Fetch messages and parts in parallel
+				const [messages, parts] = yield* _(
+					Effect.all(
+						[MessageAtom.list(sessionId, directory), PartAtom.list(sessionId, directory)],
+						{
+							concurrency: 2,
+						},
+					),
+				)
+
+				// Use MessageService to join messages with parts
+				const service = yield* _(MessageService)
+				return service.listWithParts({ messages, parts })
 			}),
 		),
 }

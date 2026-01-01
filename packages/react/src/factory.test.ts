@@ -291,13 +291,14 @@ describe("generateOpencodeHelpers", () => {
 			}
 
 			// Simulate SSE event for directory B (different from configured directory)
+			// Status is pre-normalized by Core's normalizeStatus() in multi-server-sse.ts
 			const directoryBEvent = {
 				directory: "/project-b",
 				payload: {
 					type: "session.status",
 					properties: {
 						sessionID: "test-session-123",
-						status: { running: true },
+						status: "running", // Pre-normalized by Core
 					},
 				},
 			}
@@ -320,13 +321,14 @@ describe("generateOpencodeHelpers", () => {
 				directory: "/project-a",
 			}
 
+			// Status is pre-normalized by Core's normalizeStatus() in multi-server-sse.ts
 			const sameDirectoryEvent = {
 				directory: "/project-a",
 				payload: {
 					type: "session.status",
 					properties: {
 						sessionID: "test-session-456",
-						status: { running: false },
+						status: "completed", // Pre-normalized by Core
 					},
 				},
 			}

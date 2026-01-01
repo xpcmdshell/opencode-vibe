@@ -31,12 +31,12 @@ describe("useSessionStatus - store integration", () => {
 		const store = useOpencodeStore.getState()
 		store.initDirectory(directory)
 
-		// Set status via event
+		// Set status via event (status is pre-normalized by Core SSE layer)
 		store.handleEvent(directory, {
 			type: "session.status",
 			properties: {
 				sessionID: "session-1",
-				status: { type: "busy" },
+				status: "running", // Pre-normalized by Core's normalizeStatus()
 			},
 		})
 
@@ -53,12 +53,12 @@ describe("useSessionStatus - store integration", () => {
 		const initialStatus = store.directories[directory]?.sessionStatus["session-1"]
 		expect(initialStatus).toBeUndefined()
 
-		// Update status via event
+		// Update status via event (status is pre-normalized by Core SSE layer)
 		store.handleEvent(directory, {
 			type: "session.status",
 			properties: {
 				sessionID: "session-1",
-				status: { type: "busy" },
+				status: "running", // Pre-normalized by Core's normalizeStatus()
 			},
 		})
 
@@ -72,21 +72,21 @@ describe("useSessionStatus - store integration", () => {
 		const store = useOpencodeStore.getState()
 		store.initDirectory(directory)
 
-		// Set status for session-1
+		// Set status for session-1 (status is pre-normalized by Core SSE layer)
 		store.handleEvent(directory, {
 			type: "session.status",
 			properties: {
 				sessionID: "session-1",
-				status: { type: "busy" },
+				status: "running", // Pre-normalized by Core's normalizeStatus()
 			},
 		})
 
-		// Set status for session-2
+		// Set status for session-2 (status is pre-normalized by Core SSE layer)
 		store.handleEvent(directory, {
 			type: "session.status",
 			properties: {
 				sessionID: "session-2",
-				status: { running: false },
+				status: "completed", // Pre-normalized by Core's normalizeStatus()
 			},
 		})
 

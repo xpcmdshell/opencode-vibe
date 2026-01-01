@@ -29,6 +29,7 @@
 
 import { EventSourceParserStream } from "eventsource-parser/stream"
 import type { ConnectionState, DiscoveredServer, SSEState } from "../types/events.js"
+import { normalizeStatus } from "./normalize-status.js"
 
 /**
  * Backoff configuration for reconnection attempts
@@ -59,7 +60,7 @@ export function calculateBackoff(attempt: number): number {
 interface StatusUpdate {
 	directory: string
 	sessionID: string
-	status: { type: string; [key: string]: unknown }
+	status: "running" | "completed"
 }
 
 type StatusCallback = (update: StatusUpdate) => void
@@ -657,10 +658,12 @@ export class MultiServerSSE {
 		if (payload.type === "session.status") {
 			const { sessionID, status } = payload.properties as {
 				sessionID: string
-				status: { type: string }
+				status: unknown
 			}
-			if (sessionID && status) {
-				this.emitStatus({ directory, sessionID, status })
+			if (sessionID && status != null) {
+				// Normalize status to canonical format
+				const normalizedStatus = normalizeStatus(status)
+				this.emitStatus({ directory, sessionID, status: normalizedStatus })
 			}
 		}
 	}

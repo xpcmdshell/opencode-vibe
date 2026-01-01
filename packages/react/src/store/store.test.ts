@@ -336,7 +336,7 @@ describe("useOpencodeStore", () => {
 					type: "session.status",
 					properties: {
 						sessionID: "session-b-1",
-						status: { running: true },
+						status: "running",
 					},
 				},
 			})
@@ -366,7 +366,7 @@ describe("useOpencodeStore", () => {
 					type: "session.status",
 					properties: {
 						sessionID: "session-a-1",
-						status: { running: true },
+						status: "running",
 					},
 				},
 			})
@@ -378,7 +378,7 @@ describe("useOpencodeStore", () => {
 					type: "session.status",
 					properties: {
 						sessionID: "session-b-1",
-						status: { running: true },
+						status: "running",
 					},
 				},
 			})
@@ -393,18 +393,18 @@ describe("useOpencodeStore", () => {
 			expect(state.directories["/project/B"]?.sessionStatus["session-a-1"]).toBeUndefined()
 		})
 
-		it("should handle session.status event with different payload formats", () => {
+		it("should handle session.status event with normalized status values", () => {
 			const store = useOpencodeStore.getState()
 			store.initDirectory("/project/A")
 
-			// Format 1: { running: boolean } from SSE
+			// Status is already normalized to "running" | "completed" by Core layer
 			store.handleSSEEvent({
 				directory: "/project/A",
 				payload: {
 					type: "session.status",
 					properties: {
 						sessionID: "session-1",
-						status: { running: true },
+						status: "running",
 					},
 				},
 			})
@@ -412,50 +412,19 @@ describe("useOpencodeStore", () => {
 			let status = useOpencodeStore.getState().directories["/project/A"]?.sessionStatus["session-1"]
 			expect(status).toBe("running")
 
-			// Format 2: { type: "busy" | "retry" | "idle" } from /session/status endpoint
 			store.handleSSEEvent({
 				directory: "/project/A",
 				payload: {
 					type: "session.status",
 					properties: {
 						sessionID: "session-2",
-						status: { type: "busy" },
+						status: "completed",
 					},
 				},
 			})
 
 			status = useOpencodeStore.getState().directories["/project/A"]?.sessionStatus["session-2"]
-			expect(status).toBe("running")
-
-			// Format 3: { type: "idle" } should be "completed"
-			store.handleSSEEvent({
-				directory: "/project/A",
-				payload: {
-					type: "session.status",
-					properties: {
-						sessionID: "session-3",
-						status: { type: "idle" },
-					},
-				},
-			})
-
-			status = useOpencodeStore.getState().directories["/project/A"]?.sessionStatus["session-3"]
 			expect(status).toBe("completed")
-
-			// Format 4: string format (for tests or future API changes)
-			store.handleSSEEvent({
-				directory: "/project/A",
-				payload: {
-					type: "session.status",
-					properties: {
-						sessionID: "session-4",
-						status: "error",
-					},
-				},
-			})
-
-			status = useOpencodeStore.getState().directories["/project/A"]?.sessionStatus["session-4"]
-			expect(status).toBe("error")
 		})
 
 		it("should update sessionLastActivity timestamp on status change", () => {
@@ -470,7 +439,7 @@ describe("useOpencodeStore", () => {
 					type: "session.status",
 					properties: {
 						sessionID: "session-1",
-						status: { running: true },
+						status: "running",
 					},
 				},
 			})
@@ -541,14 +510,14 @@ describe("useOpencodeStore", () => {
 			const store = useOpencodeStore.getState()
 			store.initDirectory("/project/A")
 
-			// Session starts running
+			// Session starts running (status already normalized by Core layer)
 			store.handleSSEEvent({
 				directory: "/project/A",
 				payload: {
 					type: "session.status",
 					properties: {
 						sessionID: "session-1",
-						status: { running: true },
+						status: "running",
 					},
 				},
 			})
@@ -562,14 +531,14 @@ describe("useOpencodeStore", () => {
 			// Small delay to ensure timestamp difference
 			const delay = () => new Promise((resolve) => setTimeout(resolve, 10))
 			return delay().then(() => {
-				// Session completes
+				// Session completes (status already normalized by Core layer)
 				store.handleSSEEvent({
 					directory: "/project/A",
 					payload: {
 						type: "session.status",
 						properties: {
 							sessionID: "session-1",
-							status: { running: false },
+							status: "completed",
 						},
 					},
 				})

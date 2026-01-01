@@ -10,7 +10,7 @@
  */
 
 import { Effect, Layer } from "effect"
-import { StatusService, MessageService } from "../services/index.js"
+import { StatusService, MessageService, ContextService } from "../services/index.js"
 
 /**
  * ConfigService - Simple configuration service
@@ -33,6 +33,7 @@ export class ConfigService extends Effect.Service<ConfigService>()("ConfigServic
  * - ConfigService: Environment configuration
  * - StatusService: Session status computation
  * - MessageService: Message-parts join operations
+ * - ContextService: Context usage computation
  *
  * Future services will be added here as ADR-016 phases progress.
  */
@@ -40,4 +41,5 @@ export const AppLayer = Layer.mergeAll(
 	ConfigService.Default,
 	StatusService.Default,
 	MessageService.Default,
+	ContextService.Default,
 )

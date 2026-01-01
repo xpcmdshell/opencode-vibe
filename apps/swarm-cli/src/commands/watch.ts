@@ -13,13 +13,16 @@
  */
 
 import { Stream, Effect } from "effect"
-import { resumeEvents, type EventOffset, type WorldEvent } from "@opencode-vibe/core/world"
+import { resumeEventsDirect, type EventOffset, type WorldEvent } from "@opencode-vibe/core/world"
 import type { CommandContext } from "./index.js"
 import { write, writeError, loadCursor, saveCursor, withLinks, formatNextSteps } from "../output.js"
+import { discoverServers } from "../discovery.js"
+import { WorldStateAggregator, formatWorldState, type RawSSEEvent } from "../world-state.js"
 
 interface WatchOptions {
 	since?: string // Cursor offset to resume from
 	cursorFile?: string // Persist cursor after each event
+	world?: boolean // Show aggregated world state instead of raw events
 }
 
 /**
@@ -37,6 +40,10 @@ function parseArgs(args: string[]): WatchOptions {
 				break
 			case "--cursor-file":
 				options.cursorFile = args[++i]
+				break
+			case "--world":
+			case "-w":
+				options.world = true
 				break
 			case "--help":
 			case "-h":
@@ -65,6 +72,7 @@ Usage:
 Options:
   --since <offset>       Resume from cursor offset
   --cursor-file <path>   Persist cursor after each event
+  --world, -w            Show aggregated world state (refreshes on each event)
   --json                 NDJSON output (machine-readable)
   --help, -h             Show this message
 
@@ -95,10 +103,13 @@ export async function run(context: CommandContext): Promise<void> {
 	const { args, output } = context
 	const options = parseArgs(args)
 
+	// Cursor file can come from global options OR command options
+	const cursorFile = output.cursorFile || options.cursorFile
+
 	// Load cursor from file if specified
 	let savedOffset: EventOffset | undefined
-	if (options.cursorFile) {
-		const loaded = await loadCursor(options.cursorFile)
+	if (cursorFile) {
+		const loaded = await loadCursor(cursorFile)
 		if (loaded) {
 			savedOffset = loaded as EventOffset
 			if (output.mode === "pretty") {
@@ -121,45 +132,101 @@ export async function run(context: CommandContext): Promise<void> {
 
 	try {
 		if (output.mode === "pretty") {
-			console.log("Watching for events... (Ctrl+C to stop)\n")
+			if (options.world) {
+				console.log("Watching world state... (Ctrl+C to stop)\n")
+			} else {
+				console.log("Watching for events... (Ctrl+C to stop)\n")
+			}
 		}
 
-		// Stream events with resumption
-		const stream = resumeEvents(savedOffset)
+		// Stream events with resumption using direct server connections
+		const stream = resumeEventsDirect(discoverServers, savedOffset)
+
+		// Create aggregator for --world mode
+		const aggregator = options.world ? new WorldStateAggregator() : null
+		let lastWorldUpdate = 0
+		const WORLD_UPDATE_INTERVAL = 500 // Update world view at most every 500ms
 
 		// Convert Effect Stream to runnable Effect and execute
 		const program = Stream.runForEach(stream as any, (event: WorldEvent) =>
 			Effect.promise(async () => {
 				if (!running) return
 
-				// Output event with progressive discovery hints
-				if (output.mode === "json") {
-					// Add _links for JSON mode
-					const eventWithLinks = withLinks(event as Record<string, unknown>, {
-						resume: `swarm-cli watch --since ${event.offset}`,
-						persist: `swarm-cli watch --cursor-file .cursor`,
-						query: `swarm-cli query --type ${event.type}`,
-					})
-					write(output, eventWithLinks)
+				// World mode: aggregate events and show world state
+				if (options.world && aggregator) {
+					const rawEvent: RawSSEEvent = {
+						type: event.type,
+						offset: event.offset,
+						timestamp: event.timestamp,
+						upToDate: event.upToDate,
+						payload: event.payload as Record<string, unknown>,
+					}
+					aggregator.processEvent(rawEvent)
+
+					// Throttle world updates to avoid flickering
+					const now = Date.now()
+					if (now - lastWorldUpdate > WORLD_UPDATE_INTERVAL || event.upToDate) {
+						lastWorldUpdate = now
+						const world = aggregator.getSnapshot()
+
+						if (output.mode === "json") {
+							const worldWithLinks = withLinks(
+								{
+									...world,
+									projects: world.projects.map((p) => ({
+										directory: p.directory,
+										sessionCount: p.sessions.length,
+										activeCount: p.activeCount,
+										totalMessages: p.totalMessages,
+									})),
+								},
+								{
+									resume: `swarm-cli watch --world --since ${event.offset}`,
+									rawEvents: `swarm-cli watch --since ${event.offset}`,
+									status: "swarm-cli status",
+								},
+							)
+							write(output, worldWithLinks)
+						} else {
+							// Clear screen and redraw world state
+							console.clear()
+							console.log(formatWorldState(world))
+							console.log("\nWatching for changes... (Ctrl+C to stop)")
+						}
+					}
 				} else {
-					write(output, event)
+					// Raw event mode
+					if (output.mode === "json") {
+						const eventWithLinks = withLinks(event as Record<string, unknown>, {
+							resume: `swarm-cli watch --since ${event.offset}`,
+							persist: `swarm-cli watch --cursor-file .cursor`,
+							query: `swarm-cli query --type ${event.type}`,
+						})
+						write(output, eventWithLinks)
+					} else {
+						write(output, event)
+					}
+
+					// Pretty mode: show upToDate transition with next steps
+					if (output.mode === "pretty" && event.upToDate) {
+						console.log("\n✓ Caught up! Now streaming live events...\n")
+						console.log(
+							formatNextSteps([
+								"💾 Persist cursor: swarm-cli watch --cursor-file .cursor",
+								"🌍 World view: swarm-cli watch --world",
+								"📊 Status: swarm-cli status",
+							]),
+						)
+					}
 				}
 
 				// Persist cursor if configured
-				if (options.cursorFile) {
-					await saveCursor(options.cursorFile, event.offset)
-				}
-
-				// Pretty mode: show upToDate transition with next steps
-				if (output.mode === "pretty" && event.upToDate) {
-					console.log("\n✓ Caught up! Now streaming live events...\n")
-					console.log(
-						formatNextSteps([
-							"💾 Persist cursor: swarm-cli watch --cursor-file .cursor",
-							"🔍 Query events: swarm-cli query --type session.created",
-							"📊 View sessions: swarm-cli list",
-						]),
-					)
+				if (cursorFile) {
+					try {
+						await saveCursor(cursorFile, event.offset)
+					} catch (err) {
+						console.error(`[cursor] Failed to save: ${err}`)
+					}
 				}
 			}),
 		)

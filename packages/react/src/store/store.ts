@@ -288,49 +288,16 @@ export const useOpencodeStore = create<OpencodeState & OpencodeActions>()(
 						/**
 						 * Handle session status updates
 						 *
-						 * Backend can send status in different formats:
-						 * - { type: "busy" | "retry" | "idle" } from /session/status endpoint
-						 * - { running: boolean } from SSE events
-						 * - string literal (for tests or future API changes)
-						 *
-						 * Normalizes all formats to SessionStatus ("running" | "completed").
-						 * Also tracks last activity time for sorting sessions by recency.
+						 * Status is already normalized to SessionStatus ("running" | "completed")
+						 * by Core layer's normalizeStatus() utility.
 						 */
-						// Backend sends { type: "busy" | "retry" | "idle" } or SSE sends { running: boolean }
-						const statusPayload = event.properties.status
+						const status = event.properties.status as SessionStatus
 						const sessionID = event.properties.sessionID
 
 						console.debug("[store] session.status received:", {
 							sessionID,
-							statusPayload,
-							directory,
-						})
-
-						let status: SessionStatus = "completed"
-
-						if (typeof statusPayload === "object" && statusPayload !== null) {
-							if ("type" in statusPayload) {
-								// Handle { type: "busy" | "retry" | "idle" } format from /session/status endpoint
-								status =
-									statusPayload.type === "busy" || statusPayload.type === "retry"
-										? "running"
-										: "completed"
-							} else if ("running" in statusPayload) {
-								// Handle { running: boolean } format from SSE
-								status = statusPayload.running ? "running" : "completed"
-							} else {
-								console.warn("[store] session.status unexpected format:", statusPayload)
-							}
-						} else if (typeof statusPayload === "string") {
-							// Handle string format (for tests or future API changes)
-							status = statusPayload as SessionStatus
-						} else {
-							console.warn("[store] session.status unexpected format:", statusPayload)
-						}
-
-						console.debug("[store] session.status normalized:", {
-							sessionID,
 							status,
+							directory,
 						})
 
 						dir.sessionStatus[sessionID] = status
