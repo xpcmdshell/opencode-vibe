@@ -209,40 +209,38 @@ describe("useSendMessage - queue behavior with real useSessionStatus", () => {
 })
 
 describe("useSendMessage - useSessionStatus integration", () => {
-	test("calls useSessionStatus with options object (sessionId + directory)", () => {
-		// This test verifies the fix: stub is deleted, real hook is imported,
-		// and it's called with the correct signature
+	test("calls useSessionStatus with sessionId string", () => {
+		// This test verifies the hook is called with the correct signature
+		// useSessionStatus takes a sessionId string and gets directory from context
 
 		// Track mock calls
-		const mockImpl = vi.fn(() => ({ running: false, isLoading: false }))
+		const mockImpl = vi.fn(() => "completed" as const)
 		;(useSessionStatus as ReturnType<typeof vi.fn>).mockImplementation(mockImpl)
 
 		const sessionId = "ses_123"
-		const directory = "/project"
 
-		// Simulate what the fixed hook does at line 144
-		const { running } = useSessionStatus({ sessionId, directory })
+		// Simulate what the hook does - it takes sessionId string
+		const status = useSessionStatus(sessionId)
 
-		// Verify it was called with options object, not string
-		expect(mockImpl).toHaveBeenCalledWith({ sessionId, directory })
-		expect(running).toBe(false)
+		// Verify it was called with sessionId string
+		expect(mockImpl).toHaveBeenCalledWith(sessionId)
+		expect(status).toBe("completed")
 	})
 
-	test("passes directory to useSessionStatus when provided", () => {
-		const mockImpl = vi.fn(() => ({ running: false, isLoading: false }))
+	test("returns session status from store", () => {
+		const mockImpl = vi.fn(() => "running" as const)
 		;(useSessionStatus as ReturnType<typeof vi.fn>).mockImplementation(mockImpl)
 
-		// With directory
-		useSessionStatus({ sessionId: "ses_123", directory: "/project" })
-		expect(mockImpl).toHaveBeenCalledWith({
-			sessionId: "ses_123",
-			directory: "/project",
-		})
+		// Call with sessionId
+		const status = useSessionStatus("ses_123")
+		expect(mockImpl).toHaveBeenCalledWith("ses_123")
+		expect(status).toBe("running")
 
 		mockImpl.mockClear()
 
-		// Without directory (directory is optional)
-		useSessionStatus({ sessionId: "ses_456" })
-		expect(mockImpl).toHaveBeenCalledWith({ sessionId: "ses_456" })
+		// Different session
+		const status2 = useSessionStatus("ses_456")
+		expect(mockImpl).toHaveBeenCalledWith("ses_456")
+		expect(status2).toBe("running")
 	})
 })
