@@ -573,26 +573,29 @@ export function generateOpencodeHelpers<TRouter = any>(config?: OpencodeConfig) 
 	 * @returns createSession function, loading state, error
 	 */
 	function useCreateSession() {
+		const cfg = getOpencodeConfig(config)
 		const [isCreating, setIsCreating] = useState(false)
 		const [error, setError] = useState<Error | null>(null)
 
-		const createSession = useCallback(async (title?: string) => {
-			try {
-				setIsCreating(true)
-				setError(null)
+		const createSession = useCallback(
+			async (title?: string, directory?: string) => {
+				try {
+					setIsCreating(true)
+					setError(null)
 
-				// Call sessions.create() from @opencode-vibe/core/api
-				const result = await sessions.create(title)
+					const result = await sessions.create(title, directory ?? cfg.directory)
 
-				return result
-			} catch (err) {
-				const errorObj = err instanceof Error ? err : new Error(String(err))
-				setError(errorObj)
-				return null
-			} finally {
-				setIsCreating(false)
-			}
-		}, [])
+					return result
+				} catch (err) {
+					const errorObj = err instanceof Error ? err : new Error(String(err))
+					setError(errorObj)
+					return null
+				} finally {
+					setIsCreating(false)
+				}
+			},
+			[cfg.directory],
+		)
 
 		return { createSession, isCreating, error }
 	}

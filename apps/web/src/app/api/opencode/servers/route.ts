@@ -54,7 +54,7 @@ async function verifyOpencodeServer(candidate: CandidatePort): Promise<Discovere
 		const project = await res.json()
 		const directory = project.worktree
 
-		if (!directory || directory === "/" || directory.length <= 1) {
+		if (!directory) {
 			return null
 		}
 

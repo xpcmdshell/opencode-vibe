@@ -10,8 +10,9 @@
 
 import { useMemo, memo, useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { useLiveTime, useConnectionStatus, useSSEEvents } from "@/app/hooks"
+import { useLiveTime, useConnectionStatus, useSSEEvents, useCreateSession } from "@/app/hooks"
 import {
 	useMultiDirectorySessions,
 	useMultiDirectoryStatus,
@@ -208,17 +209,26 @@ function SortedSessionsList({
 	)
 }
 
-/**
- * New session button (client component for navigation)
- */
 function NewSessionButton({ directory }: { directory: string }) {
+	const router = useRouter()
+	const { createSession, isCreating } = useCreateSession()
+
+	const handleCreate = async () => {
+		const session = await createSession(undefined, directory)
+		if (session) {
+			router.push(`/session/${session.id}?dir=${encodeURIComponent(directory)}`)
+		}
+	}
+
 	return (
-		<Link
-			href={`/session/new?dir=${encodeURIComponent(directory)}`}
-			className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+		<button
+			type="button"
+			onClick={handleCreate}
+			disabled={isCreating}
+			className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
 		>
-			+ New
-		</Link>
+			{isCreating ? "Creating..." : "+ New"}
+		</button>
 	)
 }
 

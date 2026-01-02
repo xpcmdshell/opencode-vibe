@@ -1,4 +1,4 @@
-import { createClientSSR, globalClientSSR } from "@opencode-vibe/core/client"
+import { createClientSSR } from "@opencode-vibe/core/client"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { OpenCodeLogo } from "@/components/opencode-logo"
 import { ProjectsList } from "./projects-list"
@@ -70,9 +70,7 @@ function formatRelativeTime(timestamp: number, now: number): string {
  * Check if a project is a real project (not a temp directory)
  */
 function isRealProject(project: Project): boolean {
-	if (project.id === "global") return false
 	if (project.worktree.includes("/T/opencode-test-")) return false
-	if (project.worktree === "/") return false
 	return true
 }
 
@@ -84,8 +82,8 @@ function isRealProject(project: Project): boolean {
  * aborted by Next.js if this function had "use cache".
  */
 async function getProjectsWithSessions(): Promise<ProjectWithSessions[]> {
-	// 1. Get all projects (globalClientSSR is Promise<OpencodeClient>)
-	const client = await globalClientSSR
+	// 1. Get all projects (fresh client each request - no stale singleton)
+	const client = await createClientSSR()
 	const projectsResponse = await client.project.list()
 	const allProjects = (projectsResponse.data || []) as Project[]
 

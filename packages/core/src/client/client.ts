@@ -26,7 +26,6 @@ const DEFAULT_PROXY_URL = (() => {
 		const port = url.port || "4056"
 		return `/api/opencode/${port}`
 	} catch {
-		// Fallback if OPENCODE_URL is malformed
 		return "/api/opencode/4056"
 	}
 })()
@@ -248,16 +247,7 @@ async function discoverServersSSR(): Promise<ServerInfo[]> {
 }
 
 /**
- * Global SSR client promise for use in server components
- * Use this for global operations (no directory scoping) in SSR
- *
- * @example
- * ```tsx
- * export default async function Page() {
- *   const client = await globalClientSSR
- *   const projects = await client.project.list()
- *   return <div>...</div>
- * }
- * ```
+ * @deprecated Use createClientSSR() directly instead.
+ * This singleton caches at module load time, causing stale discovery.
  */
 export const globalClientSSR = createClientSSR()
